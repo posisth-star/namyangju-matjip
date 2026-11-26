@@ -58,6 +58,7 @@ async function show() {
   try {
     const data = await state.fetchFor(area, active, { pages: 1 });
     if (state.area !== area || state.active !== active) return; // 그 사이 선택이 바뀌었으면 무시
+    state.pages = data.pages ?? 1; // 추천 탭은 45곳을 채우려고 첫 화면에 여러 페이지를 받을 수 있다
     state.data = data;
     paint();
   } catch (e) {
@@ -82,7 +83,7 @@ async function loadMore(btn) {
   try {
     const data = await state.fetchFor(area, active, { pages: state.pages + 1 });
     if (state.area !== area || state.active !== active) return;
-    state.pages += 1;
+    state.pages = data.pages ?? state.pages + 1;
     state.data = data;
     paint();
   } catch (e) {

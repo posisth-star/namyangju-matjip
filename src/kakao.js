@@ -73,7 +73,7 @@ export function createFetcher(keywordSearch, sdk, options = {}) {
     let st = states.get(cacheKey);
     if (!st) {
       // 사각형이 있는 지역의 메뉴 탭은 검색어만(지역 이름 없이) 사각형 안에서 한 번씩 검색한다.
-      // 전체 탭('맛집'·지역명)은 사각형 검색 결과가 크게 줄어서 지금처럼 '지역 이름 + 검색어'로 검색한다.
+      // 추천 탭('맛집'·지역명)은 사각형 검색 결과가 크게 줄어서 지금처럼 '지역 이름 + 검색어'로 검색한다.
       const useBox = area.bounds && category.key !== 'all';
       const extra = useBox ? { bounds: sdk.toBounds ? sdk.toBounds(area.bounds) : area.bounds } : {};
       const words = useBox
@@ -87,8 +87,8 @@ export function createFetcher(keywordSearch, sdk, options = {}) {
       if (!addr.includes(`${CITY}시`)) return false;
       return area.legal == null || area.legal.includes(areaOf(addr));
     };
-    const want = Math.min(Math.max(1, pages), Math.ceil(MAX_VISIBLE / PAGE_SIZE));
-    const run = async () => {
+    const maxPages = Math.ceil(MAX_VISIBLE / PAGE_SIZE);
+    const loadTo = async (want) => {
       if (st.pending) await st.pending.catch(() => {});
       const load = Promise.all(st.items.map(async (it) => {
         while (it.hasNext && it.pages.length < want) {
@@ -99,9 +99,32 @@ export function createFetcher(keywordSearch, sdk, options = {}) {
       }));
       st.pending = load;
       await load;
+    };
+    const build = () => {
       const lists = st.items.map((it) => it.pages.flat().filter((d) => inArea(d) && matchesCategory(d.category_name, category) && !isChain(d.place_name)));
-      const out = dedupeById(mergeRanked(lists).map((d) => toRestaurant(d))).map((r, i) => ({ ...r, rank: i + 1 }));
-      out.hasMore = st.items.some((it) => it.hasNext);
+      return dedupeById(mergeRanked(lists).map((d) => toRestaurant(d))).map((r, i) => ({ ...r, rank: i + 1 }));
+    };
+    const run = async () => {
+      let want = Math.min(Math.max(1, pages), maxPages);
+      await loadTo(want);
+      let out = build();
+      // 추천 탭 첫 화면: firstCount곳이 찰 때까지 다음 페이지를 받고, 딱 그만큼만 보여준다(나머지는 '더 보기')
+      const first = pages <= 1 && category.firstCount;
+      while (first && out.length < category.firstCount && want < maxPages && st.items.some((it) => it.hasNext)) {
+        want += 1;
+        await loadTo(want);
+        out = build();
+      }
+      const hasNext = st.items.some((it) => it.hasNext);
+      const loaded = Math.max(1, ...st.items.map((it) => it.pages.length));
+      if (first && out.length > category.firstCount) {
+        const cut = out.slice(0, category.firstCount);
+        cut.hasMore = true;
+        cut.pages = loaded;
+        return cut;
+      }
+      out.hasMore = hasNext;
+      out.pages = loaded;
       return out;
     };
     return run();

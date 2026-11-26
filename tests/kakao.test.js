@@ -159,10 +159,51 @@ test('first view costs one call per search word', async () => {
   assert.equal(out.hasMore, true);
 });
 
-test('전체 tab in a multi-legal area still searches by 법정동 names (box search is weak for generic words)', async () => {
+test('추천 tab in a multi-legal area still searches by 법정동 names (box search is weak for generic words)', async () => {
   const calls = [];
   const s = (q, cb, o) => { calls.push({ q, o }); setTimeout(() => cb([], 'ZERO', { hasNextPage: false }), 0); };
   await createFetcher(s, sdk)(areaKey('양정동'), 'all');
   assert.ok(calls.every(c => !c.o.bounds));
   assert.deepEqual(calls.map(c => c.q).sort(), ['일패동', '이패동', '삼패동'].flatMap(l => [`남양주 ${l} 맛집`, `남양주 ${l}`]).sort());
+});
+
+// ---- 추천 탭: 첫 화면에 45곳이 차도록 페이지를 더 받는다 ----
+const distinct = (prefix, n, area = '별내동') => Array.from({ length: n }, (_, i) => doc(prefix + i, `경기 남양주시 ${area} ${i}`));
+
+test('추천 first view keeps loading pages until 45 places, then shows exactly 45', async () => {
+  // 검색어 2개가 서로 다른 식당을 45곳씩: 1페이지 30곳 → 2페이지 60곳이면 멈추고 45곳만 보여준다
+  const byQ = { '남양주 맛집': distinct('a', 45), '남양주': distinct('b', 45) };
+  const calls = [];
+  const s = (q, cb, o) => {
+    calls.push({ q, page: o.page });
+    const all = byQ[q] ?? [], page = all.slice((o.page - 1) * 15, o.page * 15);
+    setTimeout(() => cb(page, page.length ? 'OK' : 'ZERO', { hasNextPage: o.page * 15 < all.length }), 0);
+  };
+  const f = createFetcher(s, sdk);
+  const first = await f('all', 'all');
+  assert.equal(calls.length, 4); // 2페이지까지만
+  assert.equal(first.length, 45);
+  assert.deepEqual(first.map(x => x.rank), Array.from({ length: 45 }, (_, i) => i + 1));
+  assert.equal(first.hasMore, true);
+  assert.equal(first.pages, 2);
+  // 더 보기: 다음(3) 페이지를 받아 전부 보여준다
+  const more = await f('all', 'all', { pages: first.pages + 1 });
+  assert.equal(calls.length, 6);
+  assert.equal(more.length, 90);
+  assert.equal(more.hasMore, false);
+});
+
+test('추천 first view stops at the last page when an area has fewer than 45 places', async () => {
+  const s = fakeRanked(distinct('x', 20));
+  const out = await createFetcher(s, sdk)(areaKey('별내동'), 'all');
+  assert.equal(out.length, 20);
+  assert.equal(out.hasMore, false);
+  assert.equal(s.calls.length, 4); // 검색어 2개 × 2페이지(2페이지에서 끝)
+});
+
+test('menu tabs still load only page 1 at first (45 rule is for 추천 only)', async () => {
+  const s = fakeRanked(ranked(60));
+  const out = await createFetcher(s, sdk)('all', 'noodle');
+  assert.equal(s.calls.length, 3);
+  assert.equal(out.pages, 1);
 });
