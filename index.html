@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>남양주 맛집</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>남양주 맛집</h1>
+    <p class="lead">지역과 종류를 고르면 카카오 추천순으로 보여드려요. 리뷰는 네이버·카카오에서 확인하세요.</p>
+  </header>
+  <div class="controls">
+    <label>지역
+      <select id="area"></select>
+    </label>
+    <label>정렬
+      <select id="sortBy">
+        <option value="rank">추천순</option>
+        <option value="name">이름순</option>
+      </select>
+    </label>
+  </div>
+  <nav id="tabs" role="tablist" aria-label="음식 종류"></nav>
+  <main id="list" aria-live="polite"></main>
+  <footer id="footer">장소 정보: 카카오맵 · 순위는 카카오 정확도(추천) 순이에요.</footer>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
