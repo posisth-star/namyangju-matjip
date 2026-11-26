@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { CATEGORIES, AREAS, HIDDEN, isVisible, visibleCategories, visibleAreas } from '../src/categories.js';
 import { matchesCategory } from '../src/places-logic.js';
 import { parseUrlState, buildUrlQuery } from '../src/url-state.js';
-import { areaFromRegion } from '../src/nearby.js';
 
 // ---- 1. 고정 숨김 목록 ----
 test('HIDDEN only uses known areas and categories, never 전체', () => {
@@ -58,26 +57,3 @@ test('buildUrlQuery omits defaults and round-trips', () => {
   assert.deepEqual(parseUrlState(qs2), { area: 'all', active: 'all', term: '순대 국밥', sortBy: 'name' });
 });
 
-// ---- 5. 내 주변 ----
-test('areaFromRegion maps 카카오 행정동 to our areas', () => {
-  assert.equal(areaFromRegion('경기도', '남양주시', '다산1동'), '다산동');
-  assert.equal(areaFromRegion('경기도', '남양주시', '다산2동'), '다산동');
-  assert.equal(areaFromRegion('경기도', '남양주시', '양정동'), '양정동');
-  assert.equal(areaFromRegion('경기도', '남양주시', '화도읍'), '화도읍');
-  assert.equal(areaFromRegion('경기도', '남양주시', '별내동'), '별내동');
-  assert.equal(areaFromRegion('경기도', '남양주시', '없는동'), 'all');
-  assert.equal(areaFromRegion('서울특별시', '종로구', '종로1.2.3.4가동'), null);
-});
-
-import { locateArea } from '../src/nearby.js';
-const geo = (lng, lat) => ({ getCurrentPosition: (ok) => setTimeout(() => ok({ coords: { longitude: lng, latitude: lat } }), 0) });
-const geocoder = (r2, r3) => ({ coord2RegionCode: (x, y, cb) => setTimeout(() => cb([{ region_type: 'B', region_2depth_name: r2, region_3depth_name: 'x' }, { region_type: 'H', region_1depth_name: '경기도', region_2depth_name: r2, region_3depth_name: r3 }], 'OK'), 0) });
-test('locateArea resolves our area from position', async () => {
-  assert.equal(await locateArea(geo(127.15, 37.62), geocoder('남양주시', '다산2동'), 'OK'), '다산동');
-});
-test('locateArea rejects outside 남양주 and on denied permission', async () => {
-  await assert.rejects(locateArea(geo(126.98, 37.57), geocoder('종로구', '종로1.2.3.4가동'), 'OK'), /남양주 밖/);
-  const denied = { getCurrentPosition: (ok, fail) => setTimeout(() => fail({ code: 1 }), 0) };
-  await assert.rejects(locateArea(denied, geocoder('남양주시', '다산1동'), 'OK'), /권한/);
-  await assert.rejects(locateArea(undefined, geocoder('남양주시', '다산1동'), 'OK'), /지원하지/);
-});

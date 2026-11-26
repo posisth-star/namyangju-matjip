@@ -4,7 +4,6 @@ import { sortRestaurants } from './places-logic.js';
 import { createFetcher, createSearcher, withTimeout } from './kakao.js';
 import { renderTabs, renderList, renderLoading, renderError, renderAreaOptions } from './ui.js';
 import { parseUrlState, buildUrlQuery } from './url-state.js';
-import { locateArea } from './nearby.js';
 
 const $ = (id) => document.getElementById(id);
 // 주소(?area=…&cat=…&q=…&sort=…)에 담긴 화면으로 시작한다
@@ -64,12 +63,6 @@ function setArea(areaKey) {
   show();
 }
 
-function flash(message) {
-  const el = $('nearbyMsg');
-  if (!el) return;
-  el.textContent = message;
-  el.hidden = !message;
-}
 
 // 다시 시도: SDK가 준비됐으면 현재 선택만 재호출, 아니면 새로고침
 document.addEventListener('click', (ev) => {
@@ -104,7 +97,7 @@ async function main() {
       show();
     }
   });
-  $('area')?.addEventListener('change', (ev) => { flash(''); setArea(ev.target.value); });
+  $('area')?.addEventListener('change', (ev) => setArea(ev.target.value));
   $('sortBy')?.addEventListener('change', (ev) => { state.sortBy = ev.target.value; syncUrl(); paint(); });
   $('searchForm')?.addEventListener('submit', (ev) => {
     ev.preventDefault();
@@ -114,20 +107,6 @@ async function main() {
     show();
   });
   $('clearSearch')?.addEventListener('click', () => { state.term = ''; show(); });
-  $('nearby')?.addEventListener('click', async () => {
-    const btn = $('nearby');
-    btn.disabled = true;
-    flash('위치를 확인하는 중이에요…');
-    try {
-      const areaKey = await locateArea(navigator.geolocation, new services.Geocoder(), services.Status.OK);
-      flash(areaKey === 'all' ? '남양주 안이지만 목록에 없는 지역이라 남양주 전체를 보여드려요.' : `지금 위치: ${areaKey}`);
-      setArea(areaKey);
-    } catch (e) {
-      flash(e.message);
-    } finally {
-      btn.disabled = false;
-    }
-  });
   show();
 }
 
