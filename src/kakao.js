@@ -1,7 +1,7 @@
 // 카카오 장소 검색: '남양주 + 지역 + 종류' 키워드로 카카오 추천(정확도) 순 상위 45곳을 받는다.
 // 장소 정보는 저장하지 않고 페이지가 열려 있는 동안 메모리에만 둔다.
 import { CATEGORIES, AREAS, CITY } from './categories.js';
-import { toRestaurant, matchesCategory, dedupeById, areaOf, isLunchPlace } from './places-logic.js';
+import { toRestaurant, matchesCategory, dedupeById, areaOf, isLunchPlace, isChain } from './places-logic.js';
 
 const PAGE_SIZE = 15;
 const MAX_VISIBLE = 45; // 카카오가 한 검색에 노출하는 최대 건수
@@ -60,7 +60,7 @@ export function createFetcher(keywordSearch, sdk, options = {}) {
     const queries = area.queries.flatMap((a) => category.queries.map((c) => `${a} ${c}`.trim()));
     const p = Promise.all(queries.map((q) =>
       searchTop(keywordSearch, q, category.groupCode, sdk, options.timeoutMs)
-        .then((docs) => docs.filter((d) => inArea(d) && matchesCategory(d.category_name, category)))))
+        .then((docs) => docs.filter((d) => inArea(d) && matchesCategory(d.category_name, category) && !isChain(d.place_name)))))
       .then((lists) => dedupeById(mergeRanked(lists).map((d) => toRestaurant(d)))
         .slice(0, MAX_VISIBLE)
         .map((r, i) => ({ ...r, rank: i + 1 })));

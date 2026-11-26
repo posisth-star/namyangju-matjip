@@ -30,12 +30,12 @@ export const CATEGORIES = [
 ];
 
 // 맛집이 5곳 이하인 지역·종류 조합은 숨긴다.
-// 2026-11-26 전체 조합(지역 16 × 종류 7)을 카카오에서 조회한 결과로 정한 고정 목록이다.
+// 2026-11-26 전체 조합(지역 16 × 종류 7)을 카카오에서 조회한 결과로 정한 고정 목록이다(프랜차이즈 제외 후 기준).
 // 페이지가 열릴 때마다 세면 카카오 호출이 첫 화면에 120번 넘게 나가서 고정 목록으로 바꿨다.
 // 식당이 늘거나 줄면 다시 점검해서 고친다.
 export const HIDDEN = {
   '와부읍': ['asian'],
-  '진건읍': ['japanese', 'western', 'asian'],
+  '진건읍': ['japanese', 'western', 'snack', 'asian'],
   '오남읍': ['asian'],
   '퇴계원읍': ['japanese', 'western', 'asian'],
   '별내면': ['chinese', 'japanese', 'western', 'asian'],

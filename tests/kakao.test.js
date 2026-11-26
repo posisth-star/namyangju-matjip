@@ -172,3 +172,11 @@ test('search drops bars', async () => {
   const out = await createSearcher(s, sdk)('all', '치킨');
   assert.deepEqual(out.map(x => x.id), ['c']);
 });
+
+test('category tabs hide franchises, but name search still finds them', async () => {
+  const s = fakeRanked([{ ...doc('c'), place_name: '피자스쿨 별내점', category_name: '음식점 > 양식 > 피자' }, { ...doc('l'), place_name: '로컬피자', category_name: '음식점 > 양식 > 피자' }]);
+  const out = await createFetcher(s, sdk)('all', 'western');
+  assert.deepEqual(out.map(x => x.name), ['로컬피자']);
+  const s2 = byQueryFake({ '남양주 피자스쿨': [{ ...doc('c', '경기 남양주시 별내동 1', '음식점 > 양식 > 피자'), place_name: '피자스쿨 별내점' }] });
+  assert.equal((await createSearcher(s2, sdk)('all', '피자스쿨')).length, 1);
+});
