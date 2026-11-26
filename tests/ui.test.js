@@ -41,5 +41,14 @@ test('tabs hide categories with 5 or fewer results; 전체 and unknown stay', ()
   assert.ok(html.includes('data-key="korean"'));
   assert.ok(!html.includes('data-key="chinese"'));
   assert.ok(html.includes('data-key="japanese"'));
-  assert.ok(html.includes('data-key="cafe"'));
+  assert.ok(html.includes('data-key="snack"'));
+});
+
+test('search summary and empty message', () => {
+  assert.ok(renderList([r()], { areaLabel: '다산동', term: '칼국수' }).includes("1곳 · 다산동 · '칼국수' 검색"));
+  assert.ok(renderList([], { areaLabel: '다산동', term: '칼국수' }).includes("다산동에서 '칼국수' 검색 결과가 없어요."));
+  assert.ok(renderList([], { areaLabel: 'x', term: '<b>' }).includes('&lt;b&gt;'));
+});
+test('tabs: no active tab during search', () => {
+  assert.equal((renderTabs(CATEGORIES, null).match(/aria-selected="true"/g) || []).length, 0);
 });

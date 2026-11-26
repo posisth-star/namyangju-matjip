@@ -1,11 +1,11 @@
 // 페이지 진입점: SDK 로드 → 지역·종류 선택 → 정렬 → 렌더
 import { CATEGORIES, AREAS, MIN_COUNT } from './categories.js';
 import { sortRestaurants } from './places-logic.js';
-import { createFetcher, withTimeout } from './kakao.js';
+import { createFetcher, createSearcher, withTimeout } from './kakao.js';
 import { renderTabs, renderList, renderLoading, renderError, renderAreaOptions } from './ui.js';
 
 const $ = (id) => document.getElementById(id);
-const state = { area: AREAS[0].key, active: CATEGORIES[0].key, sortBy: 'rank', data: null, fetchFor: null, tabCounts: {} };
+const state = { area: AREAS[0].key, active: CATEGORIES[0].key, sortBy: 'rank', data: null, fetchFor: null, searchFor: null, term: '', tabCounts: {} };
 const areaLabel = () => AREAS.find((a) => a.key === state.area)?.label ?? '';
 
 export function loadKakaoSdk(appKey) {
@@ -19,8 +19,9 @@ export function loadKakaoSdk(appKey) {
 }
 
 function paint() {
-  $('tabs').innerHTML = renderTabs(CATEGORIES, state.active, state.tabCounts);
-  if (state.data) $('list').innerHTML = renderList(sortRestaurants(state.data, state.sortBy), { areaLabel: areaLabel() });
+  $('tabs').innerHTML = renderTabs(CATEGORIES, state.term ? null : state.active, state.tabCounts);
+  if ($('clearSearch')) $('clearSearch').hidden = !state.term;
+  if (state.data) $('list').innerHTML = renderList(sortRestaurants(state.data, state.sortBy), { areaLabel: areaLabel(), term: state.term });
 }
 
 // 현재 종류에서 지역별 식당 수를 조회해 지역 목록을 갱신한다. 0곳인 지역은 목록에서 빠진다.
@@ -31,7 +32,7 @@ async function refreshAreaCounts(categoryKey) {
   await Promise.all(AREAS.map((a) => state.fetchFor(a.key, categoryKey)
     .then((list) => { counts[a.key] = list.length; })
     .catch(() => { /* 실패한 지역은 숫자 없이 둔다 */ })));
-  if (state.active !== categoryKey) return; // 그 사이 종류가 바뀌었으면 무시
+  if (state.active !== categoryKey || state.term) return; // 그 사이 종류가 바뀌었거나 검색 중이면 무시
   // 지금 고른 지역이 5곳 이하면 남양주 전체로 돌린다
   if (state.area !== AREAS[0].key && counts[state.area] != null && counts[state.area] < MIN_COUNT) {
     state.area = AREAS[0].key; paintAreas(); show(); refreshTabCounts(state.area); return;
@@ -55,18 +56,18 @@ async function refreshTabCounts(areaKey) {
 }
 
 async function show() {
-  const { area, active } = state;
+  const { area, active, term } = state;
   state.data = null;
   paint();
   $('list').innerHTML = renderLoading();
   try {
-    const data = await state.fetchFor(area, active);
-    if (state.area !== area || state.active !== active) return; // 그 사이 선택이 바뀌었으면 무시
+    const data = term ? await state.searchFor(area, term) : await state.fetchFor(area, active);
+    if (state.area !== area || state.active !== active || state.term !== term) return; // 그 사이 선택이 바뀌었으면 무시
     state.data = data;
     paint();
   } catch (e) {
     console.error(e);
-    if (state.area === area && state.active === active) $('list').innerHTML = renderError();
+    if (state.area === area && state.active === active && state.term === term) $('list').innerHTML = renderError();
   }
 }
 
@@ -94,16 +95,34 @@ async function main() {
   const places = new services.Places();
   const sdk = { sortAccuracy: services.SortBy.ACCURACY, Status: services.Status };
   state.fetchFor = createFetcher(places.keywordSearch.bind(places), sdk);
+  state.searchFor = createSearcher(places.keywordSearch.bind(places), sdk);
 
   $('tabs').addEventListener('click', (ev) => {
     const btn = ev.target.closest('[data-key]');
-    if (btn && (btn.dataset.key !== state.active || !state.data)) {
+    if (btn && (btn.dataset.key !== state.active || !state.data || state.term)) {
       state.active = btn.dataset.key;
+      state.term = '';
+      if ($('q')) $('q').value = '';
       show();
       refreshAreaCounts(state.active);
     }
   });
   $('area')?.addEventListener('change', (ev) => { state.area = ev.target.value; show(); refreshTabCounts(state.area); });
+  $('searchForm')?.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const term = $('q').value.trim();
+    if (!term) return;
+    state.term = term;
+    // 검색은 종류와 상관없이 하므로, 지역 목록은 숫자 없이 전체를 보여준다
+    if ($('area')) $('area').innerHTML = renderAreaOptions(AREAS, state.area);
+    show();
+  });
+  $('clearSearch')?.addEventListener('click', () => {
+    state.term = '';
+    $('q').value = '';
+    show();
+    refreshAreaCounts(state.active);
+  });
   $('sortBy')?.addEventListener('change', (ev) => { state.sortBy = ev.target.value; paint(); });
   show();
   refreshAreaCounts(state.active);

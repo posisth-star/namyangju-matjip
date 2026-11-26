@@ -31,7 +31,7 @@ test('naverSearchUrl encodes', () => {
 test('matchesCategory', () => {
   assert.equal(matchesCategory('음식점 > 한식 > 국수', { match: '한식' }), true);
   assert.equal(matchesCategory('음식점 > 중식', { match: '한식' }), false);
-  assert.equal(matchesCategory('음식점 > 카페', { match: null }), true);
+  assert.equal(matchesCategory('음식점 > 분식', { match: null }), true);
 });
 
 test('sort rank and name', () => {

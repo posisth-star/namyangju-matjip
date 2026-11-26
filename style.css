@@ -23,3 +23,6 @@ h1 { font-size: 1.4rem; margin: 0 0 4px; }
 .btn:hover { border-color: var(--accent); }
 #footer { color:var(--muted); font-size:.8rem; padding:24px 16px 40px; }
 .rank { display:inline-block; font-size:.75rem; font-weight:600; color:#fff; background:var(--accent); border-radius:6px; padding:1px 6px; margin-right:4px; vertical-align:middle; }
+.search { max-width:720px; margin:0 auto 8px; padding:0 16px; display:flex; gap:8px; }
+.search input { flex:1; min-width:0; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:1rem; background:var(--card); color:var(--fg); }
+.search .btn { background:var(--card); cursor:pointer; }

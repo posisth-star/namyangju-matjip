@@ -29,5 +29,4 @@ export const CATEGORIES = [
   food('western', '양식'),
   food('snack', '분식'),
   food('asian', '아시아음식'),
-  { key: 'cafe', label: '카페', queries: ['카페'], groupCode: 'CE7', match: null },
 ];

@@ -35,9 +35,14 @@ function renderCard(x) {
 </li>`;
 }
 
-export function renderList(list, { areaLabel = '' } = {}) {
-  if (!list.length) return `<p class="notice">${esc(areaLabel)}에는 이 종류의 맛집 정보가 없어요.</p>`;
-  return `<p class="summary">${list.length}곳 · ${esc(areaLabel)} · 카카오 추천순</p><ul class="cards">${list.map(renderCard).join('')}</ul>`;
+export function renderList(list, { areaLabel = '', term = '' } = {}) {
+  if (!list.length) {
+    return term
+      ? `<p class="notice">${esc(areaLabel)}에서 '${esc(term)}' 검색 결과가 없어요.</p>`
+      : `<p class="notice">${esc(areaLabel)}에는 이 종류의 맛집 정보가 없어요.</p>`;
+  }
+  const scope = term ? `'${esc(term)}' 검색` : '카카오 추천순';
+  return `<p class="summary">${list.length}곳 · ${esc(areaLabel)} · ${scope}</p><ul class="cards">${list.map(renderCard).join('')}</ul>`;
 }
 
 export function renderLoading() {
