@@ -37,25 +37,22 @@ test('전체 category excludes fast food, bakery/snacks and food shops', () => {
 
 // ---- 4. 주소로 화면 공유 ----
 test('parseUrlState reads valid values and ignores unknown ones', () => {
-  assert.deepEqual(parseUrlState('?area=다산동&cat=soup&q=칼국수&sort=name'),
-    { area: '다산동', active: 'soup', term: '칼국수', sortBy: 'name' });
-  assert.deepEqual(parseUrlState('?area=부산&cat=pizza&sort=zzz'), { area: 'all', active: 'all', term: '', sortBy: 'rank' });
-  assert.deepEqual(parseUrlState(''), { area: 'all', active: 'all', term: '', sortBy: 'rank' });
+  assert.deepEqual(parseUrlState('?area=다산동&cat=soup&sort=name'), { area: '다산동', active: 'soup', sortBy: 'name' });
+  assert.deepEqual(parseUrlState('?area=부산&cat=pizza&sort=zzz'), { area: 'all', active: 'all', sortBy: 'rank' });
+  assert.deepEqual(parseUrlState(''), { area: 'all', active: 'all', sortBy: 'rank' });
+  assert.deepEqual(parseUrlState('?q=칼국수&cat=soup'), { area: 'all', active: 'soup', sortBy: 'rank' }); // 예전 검색 링크는 검색어를 무시
 });
 test('parseUrlState falls back when the combination is hidden', () => {
   const [areaKey, cats] = Object.entries(HIDDEN)[0];
   assert.equal(parseUrlState(`?area=${encodeURIComponent(areaKey)}&cat=${cats[0]}`).active, 'all');
 });
-test('parseUrlState trims and limits search term', () => {
-  assert.equal(parseUrlState('?q=' + encodeURIComponent('  냉면  ')).term, '냉면');
-  assert.equal(parseUrlState('?q=' + 'ㄱ'.repeat(50)).term.length, 30);
-});
 test('buildUrlQuery omits defaults and round-trips', () => {
-  assert.equal(buildUrlQuery({ area: 'all', active: 'all', term: '', sortBy: 'rank' }), '');
-  const qs = buildUrlQuery({ area: '다산동', active: 'soup', term: '', sortBy: 'rank' });
-  assert.deepEqual(parseUrlState(qs), { area: '다산동', active: 'soup', term: '', sortBy: 'rank' });
-  const qs2 = buildUrlQuery({ area: 'all', active: 'all', term: '순대 국밥', sortBy: 'name' });
-  assert.deepEqual(parseUrlState(qs2), { area: 'all', active: 'all', term: '순대 국밥', sortBy: 'name' });
+  assert.equal(buildUrlQuery({ area: 'all', active: 'all', sortBy: 'rank' }), '');
+  const qs = buildUrlQuery({ area: '다산동', active: 'soup', sortBy: 'rank' });
+  assert.deepEqual(parseUrlState(qs), { area: '다산동', active: 'soup', sortBy: 'rank' });
+  const qs2 = buildUrlQuery({ area: 'all', active: 'all', sortBy: 'name' });
+  assert.deepEqual(parseUrlState(qs2), { area: 'all', active: 'all', sortBy: 'name' });
+  assert.ok(!buildUrlQuery({ area: 'all', active: 'soup', sortBy: 'rank', term: 'x' }).includes('q='));
 });
 
 

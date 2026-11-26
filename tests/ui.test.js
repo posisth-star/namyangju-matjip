@@ -26,14 +26,6 @@ test('area options', () => {
 
 
 
-test('search summary and empty message', () => {
-  assert.ok(renderList([r()], { areaLabel: '다산동', term: '칼국수' }).includes("1곳 · 다산동 · '칼국수' 검색"));
-  assert.ok(renderList([], { areaLabel: '다산동', term: '칼국수' }).includes("다산동에서 '칼국수' 검색 결과가 없어요."));
-  assert.ok(renderList([], { areaLabel: 'x', term: '<b>' }).includes('&lt;b&gt;'));
-});
-test('tabs: no active tab during search', () => {
-  assert.equal((renderTabs(CATEGORIES, null).match(/aria-selected="true"/g) || []).length, 0);
-});
 
 test('card shows the road name next to the area', () => {
   const html = renderList([r({ road: '다산중앙로' })], { areaLabel: '다산동' });
@@ -49,4 +41,8 @@ test('list shows a 더 보기 button only when more results exist', () => {
   const list = [r()]; list.hasMore = true;
   assert.ok(renderList(list, { areaLabel: '다산동' }).includes('id="more"'));
   assert.ok(!renderList([r()], { areaLabel: '다산동' }).includes('id="more"'));
+});
+
+test('search UI is gone from the list text', () => {
+  assert.ok(!renderList([], { areaLabel: '다산동' }).includes('검색'));
 });

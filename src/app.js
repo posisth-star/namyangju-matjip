@@ -1,13 +1,13 @@
-// 페이지 진입점: SDK 로드 → 지역·종류·검색 → 정렬 → 렌더
+// 페이지 진입점: SDK 로드 → 지역·종류 → 정렬 → 렌더
 import { AREAS, isVisible, visibleCategories, visibleAreas } from './categories.js';
 import { sortRestaurants } from './places-logic.js';
-import { createFetcher, createSearcher, withTimeout } from './kakao.js';
+import { createFetcher, withTimeout } from './kakao.js';
 import { renderTabs, renderList, renderLoading, renderError, renderAreaOptions } from './ui.js';
 import { parseUrlState, buildUrlQuery } from './url-state.js';
 
 const $ = (id) => document.getElementById(id);
-// 주소(?area=…&cat=…&q=…&sort=…)에 담긴 화면으로 시작한다
-const state = { ...parseUrlState(location.search), pages: 1, data: null, fetchFor: null, searchFor: null };
+// 주소(?area=…&cat=…&sort=…)에 담긴 화면으로 시작한다
+const state = { ...parseUrlState(location.search), pages: 1, data: null, fetchFor: null };
 const areaLabel = () => AREAS.find((a) => a.key === state.area)?.label ?? '';
 
 export function loadKakaoSdk(appKey) {
@@ -26,7 +26,7 @@ function syncUrl() {
   if (qs !== location.search) history.replaceState(null, '', `${location.pathname}${qs}`);
 }
 
-// 탭은 지금 지역에서 보이는 종류만, 지역 목록은 지금 종류에서 보이는 지역만 (검색 중엔 모든 지역)
+// 탭은 지금 지역에서 보이는 종류만, 지역 목록은 지금 종류에서 보이는 지역만
 // 탭이 오른쪽으로 더 있으면 끝을 흐리게 표시
 function updateTabFade() {
   const t = $('tabs');
@@ -36,35 +36,33 @@ function updateTabFade() {
 function paintControls() {
   // 탭을 다시 그려도 키보드 포커스가 사라지지 않게, 포커스가 있던 탭을 기억했다가 되돌린다
   const focusedKey = document.activeElement?.closest?.('#tabs [data-key]')?.dataset.key;
-  $('tabs').innerHTML = renderTabs(visibleCategories(state.area), state.term ? null : state.active);
+  $('tabs').innerHTML = renderTabs(visibleCategories(state.area), state.active);
   if (focusedKey) $('tabs').querySelector(`[data-key="${focusedKey}"]`)?.focus({ preventScroll: true });
   updateTabFade();
-  if ($('area')) $('area').innerHTML = renderAreaOptions(state.term ? AREAS : visibleAreas(state.active), state.area);
-  if ($('clearSearch')) $('clearSearch').hidden = !state.term;
-  if ($('q') && $('q').value.trim() !== state.term) $('q').value = state.term;
+  if ($('area')) $('area').innerHTML = renderAreaOptions(visibleAreas(state.active), state.area);
   if ($('sortBy')) $('sortBy').value = state.sortBy;
 }
 
 function paint() {
   paintControls();
-  if (state.data) $('list').innerHTML = renderList(sortRestaurants(state.data, state.sortBy), { areaLabel: areaLabel(), term: state.term });
+  if (state.data) $('list').innerHTML = renderList(sortRestaurants(state.data, state.sortBy), { areaLabel: areaLabel() });
 }
 
 async function show() {
   state.pages = 1;
-  const { area, active, term } = state;
+  const { area, active } = state;
   state.data = null;
   syncUrl();
   paintControls();
   $('list').innerHTML = renderLoading();
   try {
-    const data = term ? await state.searchFor(area, term) : await state.fetchFor(area, active, { pages: 1 });
-    if (state.area !== area || state.active !== active || state.term !== term) return; // 그 사이 선택이 바뀌었으면 무시
+    const data = await state.fetchFor(area, active, { pages: 1 });
+    if (state.area !== area || state.active !== active) return; // 그 사이 선택이 바뀌었으면 무시
     state.data = data;
     paint();
   } catch (e) {
     console.error(e);
-    if (state.area === area && state.active === active && state.term === term) $('list').innerHTML = renderError();
+    if (state.area === area && state.active === active) $('list').innerHTML = renderError();
   }
 }
 
@@ -77,13 +75,13 @@ function setArea(areaKey) {
 
 // 더 보기: 지금 탭의 다음 페이지를 이어 받는다(목록은 그대로 두고 아래에 붙음)
 async function loadMore(btn) {
-  const { area, active, term } = state;
-  if (term || !state.data?.hasMore) return;
+  const { area, active } = state;
+  if (!state.data?.hasMore) return;
   btn.disabled = true;
   btn.textContent = '불러오는 중…';
   try {
     const data = await state.fetchFor(area, active, { pages: state.pages + 1 });
-    if (state.area !== area || state.active !== active || state.term) return;
+    if (state.area !== area || state.active !== active) return;
     state.pages += 1;
     state.data = data;
     paint();
@@ -122,28 +120,18 @@ async function main() {
     toBounds: (r) => new LatLngBounds(new LatLng(r.sw.lat, r.sw.lng), new LatLng(r.ne.lat, r.ne.lng)),
   };
   state.fetchFor = createFetcher(places.keywordSearch.bind(places), sdk);
-  state.searchFor = createSearcher(places.keywordSearch.bind(places), sdk);
 
   $('tabs').addEventListener('scroll', updateTabFade, { passive: true });
   window.addEventListener('resize', updateTabFade);
   $('tabs').addEventListener('click', (ev) => {
     const btn = ev.target.closest('[data-key]');
-    if (btn && (btn.dataset.key !== state.active || !state.data || state.term)) {
+    if (btn && (btn.dataset.key !== state.active || !state.data)) {
       state.active = btn.dataset.key;
-      state.term = '';
       show();
     }
   });
   $('area')?.addEventListener('change', (ev) => setArea(ev.target.value));
   $('sortBy')?.addEventListener('change', (ev) => { state.sortBy = ev.target.value; syncUrl(); paint(); });
-  $('searchForm')?.addEventListener('submit', (ev) => {
-    ev.preventDefault();
-    const term = $('q').value.trim().replace(/\s+/g, ' ').slice(0, 30);
-    if (!term) return;
-    state.term = term;
-    show();
-  });
-  $('clearSearch')?.addEventListener('click', () => { state.term = ''; show(); });
   show();
 }
 

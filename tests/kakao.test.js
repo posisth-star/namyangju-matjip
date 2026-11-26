@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { searchTop, createFetcher, mergeRanked, createSearcher } from '../src/kakao.js';
+import { searchTop, createFetcher, mergeRanked } from '../src/kakao.js';
+import * as kakao from '../src/kakao.js';
 import { CATEGORIES, AREAS } from '../src/categories.js';
 
 const sdk = { sortAccuracy: 'ACC', Status: { OK: 'OK', ZERO_RESULT: 'ZERO', ERROR: 'ERR' } };
@@ -136,7 +137,7 @@ test('전체 category searches both "맛집" and plain area name, merged', async
   assert.deepEqual(out.map(x => x.id), ['m1', 'p1']);
 });
 
-// ---- 메뉴·식당 이름 검색 ----
+// 검색어별 결과를 정해 두는 가짜 keywordSearch
 function byQueryFake(byQuery) {
   const calls = [];
   const fn = (q, cb, o) => { calls.push({ q, o }); const d = byQuery[q] ?? []; setTimeout(() => cb(d, d.length ? 'OK' : 'ZERO', { hasNextPage: false }), 0); };
@@ -144,50 +145,11 @@ function byQueryFake(byQuery) {
   return fn;
 }
 
-test('search in 남양주 전체: restaurants only, keeps Kakao order, 남양주 addresses only', async () => {
-  const s = byQueryFake({ '남양주 탕수육': [doc('h', '경기 남양주시 와부읍 1', '음식점 > 중식'), doc('x', '서울 노원구 1', '음식점 > 중식'), doc('k', '경기 남양주시 다산동 1', '음식점 > 중식')] });
-  const out = await createSearcher(s, sdk)('all', '  탕수육 ');
-  assert.deepEqual(s.calls.map(c => [c.q, c.o.category_group_code]), [['남양주 탕수육', 'FD6']]);
-  assert.deepEqual(out.map(x => [x.id, x.rank]), [['h', 1], ['k', 2]]);
-});
-
-test('search in an area keeps only places whose name or category has the term', async () => {
-  const s = byQueryFake({ '남양주 다산동 칼국수': [
-    doc('a', '경기 남양주시 다산동 1', '음식점 > 한식 > 국수 > 칼국수'),
-    doc('b', '경기 남양주시 다산동 2', '음식점 > 한식 > 육류,고기'),
-    { ...doc('c', '경기 남양주시 다산동 3', '음식점 > 한식'), place_name: '최고집칼국수' },
-    doc('d', '경기 남양주시 별내동 1', '음식점 > 한식 > 국수 > 칼국수'),
-  ] });
-  const out = await createSearcher(s, sdk)(areaKey('다산동'), '칼국수');
-  assert.deepEqual(out.map(x => x.id), ['a', 'c']);
-});
-
-test('search ignores spaces when matching the term', async () => {
-  const s = byQueryFake({ '남양주 다산동 순대 국밥': [{ ...doc('a', '경기 남양주시 다산동 1', '음식점 > 한식'), place_name: '농민순대국밥' }] });
-  const out = await createSearcher(s, sdk)(areaKey('다산동'), '순대 국밥');
-  assert.deepEqual(out.map(x => x.id), ['a']);
-});
-
-test('search caches per area+term and rejects empty term', async () => {
-  const s = byQueryFake({ '남양주 냉면': [doc('n', '경기 남양주시 와부읍 1')] });
-  const f = createSearcher(s, sdk);
-  await f('all', '냉면'); await f('all', ' 냉면 ');
-  assert.equal(s.calls.length, 1);
-  await assert.rejects(f('all', '   '));
-});
-
-test('search drops bars', async () => {
-  const s = byQueryFake({ '남양주 치킨': [doc('b', '경기 남양주시 와부읍 1', '음식점 > 술집 > 호프,요리주점'), doc('c', '경기 남양주시 와부읍 2', '음식점 > 치킨')] });
-  const out = await createSearcher(s, sdk)('all', '치킨');
-  assert.deepEqual(out.map(x => x.id), ['c']);
-});
-
-test('category tabs hide franchises, but name search still finds them', async () => {
+test('category tabs hide franchises; the search feature no longer exists', async () => {
   const s = fakeRanked([{ ...doc('c'), place_name: '피자스쿨 별내점', category_name: '음식점 > 양식 > 피자' }, { ...doc('l'), place_name: '로컬피자', category_name: '음식점 > 양식 > 피자' }]);
   const out = await createFetcher(s, sdk)('all', 'western');
   assert.deepEqual(out.map(x => x.name), ['로컬피자']);
-  const s2 = byQueryFake({ '남양주 피자스쿨': [{ ...doc('c', '경기 남양주시 별내동 1', '음식점 > 양식 > 피자'), place_name: '피자스쿨 별내점' }] });
-  assert.equal((await createSearcher(s2, sdk)('all', '피자스쿨')).length, 1);
+  assert.equal(kakao.createSearcher, undefined);
 });
 
 test('first view costs one call per search word', async () => {

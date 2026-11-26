@@ -1,7 +1,7 @@
 // 카카오 장소 검색: '남양주 + 지역 + 종류' 키워드로 카카오 추천(정확도) 순 상위 45곳을 받는다.
 // 장소 정보는 저장하지 않고 페이지가 열려 있는 동안 메모리에만 둔다.
 import { CATEGORIES, AREAS, CITY } from './categories.js';
-import { toRestaurant, matchesCategory, dedupeById, areaOf, isLunchPlace, isChain } from './places-logic.js';
+import { toRestaurant, matchesCategory, dedupeById, areaOf, isChain } from './places-logic.js';
 
 const PAGE_SIZE = 15;
 const MAX_VISIBLE = 45; // 카카오가 한 검색에 노출하는 최대 건수
@@ -105,35 +105,5 @@ export function createFetcher(keywordSearch, sdk, options = {}) {
       return out;
     };
     return run();
-  };
-}
-
-// 메뉴·식당 이름 검색: 고른 지역 안에서 음식점을 카카오 추천순으로 찾는다.
-// 지역을 골랐을 때는 카카오가 다른 메뉴 식당을 섞어 주므로, 이름이나 분류에 검색어가 들어간 곳만 남긴다.
-const compact = (s) => String(s ?? '').replace(/\s+/g, '');
-export function createSearcher(keywordSearch, sdk, options = {}) {
-  const cache = new Map();
-  return (areaKey, rawTerm) => {
-    const term = String(rawTerm ?? '').trim().replace(/\s+/g, ' ');
-    if (!term) return Promise.reject(new Error('검색어가 비어 있어요'));
-    const cacheKey = `${areaKey}:${term}`;
-    if (cache.has(cacheKey)) return cache.get(cacheKey);
-    const area = AREAS.find((a) => a.key === areaKey);
-    if (!area) return Promise.reject(new Error(`알 수 없는 지역: ${areaKey}`));
-    const needle = compact(term);
-    const keep = (d) => {
-      const addr = String(d.address_name ?? '');
-      if (!addr.includes(`${CITY}시`) || !isLunchPlace(d.category_name)) return false;
-      if (area.legal == null) return true;
-      if (!area.legal.includes(areaOf(addr))) return false;
-      return compact(d.place_name).includes(needle) || compact(d.category_name).includes(needle);
-    };
-    const p = Promise.all(area.queries.map((q) =>
-      searchTop(keywordSearch, `${q} ${term}`, 'FD6', sdk, options.timeoutMs).then((docs) => docs.filter(keep))))
-      .then((lists) => dedupeById(mergeRanked(lists).map((d) => toRestaurant(d)))
-        .map((r, i) => ({ ...r, rank: i + 1 })));
-    cache.set(cacheKey, p);
-    p.catch(() => cache.delete(cacheKey));
-    return p;
   };
 }
