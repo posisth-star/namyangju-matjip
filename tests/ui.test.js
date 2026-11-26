@@ -17,7 +17,7 @@ test('escapes name', () => assert.ok(renderList([r({ name: '<b>&</b>' })], {}).i
 test('empty', () => assert.ok(renderList([], { areaLabel: '수동면' }).includes('수동면에는 이 종류의 맛집 정보가 없어요.')));
 test('error has retry', () => assert.ok(renderError().includes('id="retry"')));
 test('loading', () => assert.ok(renderLoading().includes('불러오는 중')));
-test('tabs active', () => assert.equal(renderTabs(CATEGORIES, 'korean').match(/aria-selected="true"/g).length, 1));
+test('tabs active', () => assert.equal(renderTabs(CATEGORIES, 'soup').match(/aria-selected="true"/g).length, 1));
 test('area options', () => {
   const html = renderAreaOptions(AREAS, 'all');
   assert.equal(html.match(/<option/g).length, AREAS.length);

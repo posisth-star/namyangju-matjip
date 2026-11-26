@@ -37,9 +37,12 @@ test('naverSearchUrl encodes', () => {
 });
 
 test('matchesCategory', () => {
-  assert.equal(matchesCategory('음식점 > 한식 > 국수', { match: '한식' }), true);
-  assert.equal(matchesCategory('음식점 > 중식', { match: '한식' }), false);
-  assert.equal(matchesCategory('음식점 > 분식', { match: null }), true);
+  assert.equal(matchesCategory('음식점 > 한식 > 국수', { paths: ['한식'] }), true);
+  assert.equal(matchesCategory('음식점 > 중식', { paths: ['한식'] }), false);
+  assert.equal(matchesCategory('음식점 > 분식', { paths: null }), true);
+  assert.equal(matchesCategory('음식점 > 한식', { paths: ['한식='] }), true);
+  assert.equal(matchesCategory('음식점 > 한식 > 국밥', { paths: ['한식='] }), false);
+  assert.equal(matchesCategory('음식점 > 한식 > 육류,고기 > 오리', { paths: ['한식 > 육류,고기'], notPaths: ['한식 > 육류,고기 > 오리'] }), false);
 });
 
 test('sort rank and name', () => {

@@ -15,35 +15,44 @@ export const AREAS = [
   area('다산동', ['다산동', '수석동']),
 ];
 
-const food = (key, label) => ({ key, label, queries: [label], groupCode: 'FD6', match: label });
+// 남양주 맞춤 메뉴 탭(배달앱처럼 메뉴 위주). queries: 지역 뒤에 붙일 검색어(검색어마다 추천 상위 최대 45곳, 결과를 합친다)
+// paths: 카카오 분류('음식점 > ' 뒤)가 이 값으로 시작하면 이 탭에 넣는다. '한식='은 세부 분류 없는 '한식'만. notPaths: 빼는 분류.
+// 2026-11-26 남양주 식당 3,145곳(체인·술집 제외)의 카카오 분류를 조사해서 정했다.
+const tab = (key, label, queries, paths, notPaths = []) => ({ key, label, queries, groupCode: 'FD6', paths, notPaths });
 
 export const CATEGORIES = [
-  // 전체: 음식점(FD6) 전체를 카카오 추천순으로. '맛집'을 붙인 검색은 지역에 따라 결과가 적어서
+  // 전체: 음식점 전체를 카카오 추천순으로. '맛집'을 붙인 검색은 지역에 따라 결과가 적어서
   // 지역 이름만으로 한 검색과 합친다. 패스트푸드·간식(베이커리)·식품판매는 맛집 목록에서 뺀다.
-  { key: 'all', label: '전체', queries: ['맛집', ''], groupCode: 'FD6', match: null, exclude: ['패스트푸드', '간식', '식품판매'] },
-  food('korean', '한식'),
-  food('chinese', '중식'),
-  food('japanese', '일식'),
-  food('western', '양식'),
-  food('snack', '분식'),
-  food('asian', '아시아음식'),
+  { ...tab('all', '전체', ['맛집', ''], null), exclude: ['패스트푸드', '간식', '식품판매'] },
+  tab('meat', '고기·구이', ['고기', '갈비', '삼겹살'], ['한식 > 육류,고기'], ['한식 > 육류,고기 > 닭요리', '한식 > 육류,고기 > 오리']),
+  tab('chicken', '닭갈비·오리·백숙', ['닭갈비', '오리', '백숙'], ['한식 > 육류,고기 > 닭요리', '한식 > 육류,고기 > 오리']),
+  tab('seafood', '회·장어·해물', ['회', '장어', '아구찜'], ['한식 > 해물,생선']),
+  tab('noodle', '막국수·면', ['막국수', '칼국수', '냉면'], ['한식 > 국수', '한식 > 냉면', '한식 > 수제비']),
+  tab('soup', '국밥·탕', ['국밥', '해장국', '감자탕'], ['한식 > 국밥', '한식 > 해장국', '한식 > 감자탕', '한식 > 순대', '한식 > 곰탕', '한식 > 설렁탕']),
+  tab('hansik', '한식·한정식', ['한정식', '두부', '쌈밥'], ['한식 > 한정식', '한식 > 찌개,전골', '한식 > 두부전문점', '한식 > 쌈밥', '뷔페 > 한식뷔페', '한식=']),
+  tab('chinese', '중식', ['중식', '짬뽕'], ['중식']),
+  tab('japanese', '일식·돈까스', ['돈까스', '초밥', '일식'], ['일식']),
+  tab('western', '양식·피자', ['파스타', '피자', '스테이크'], ['양식']),
+  tab('snack', '분식', ['분식', '떡볶이', '김밥'], ['분식']),
+  tab('asian', '아시안', ['쌀국수', '아시아음식'], ['아시아음식']),
 ];
 
 // 맛집이 5곳 이하인 지역·종류 조합은 숨긴다.
-// 2026-11-26 전체 조합(지역 16 × 종류 7)을 카카오에서 조회한 결과로 정한 고정 목록이다(프랜차이즈 제외 후 기준).
+// 2026-11-26 메뉴 탭 개편 후 전체 조합(지역 16 × 탭 12)을 카카오에서 조회한 결과로 정한 고정 목록이다(프랜차이즈·술집 제외 기준).
 // 페이지가 열릴 때마다 세면 카카오 호출이 첫 화면에 120번 넘게 나가서 고정 목록으로 바꿨다.
 // 식당이 늘거나 줄면 다시 점검해서 고친다.
 export const HIDDEN = {
   '와부읍': ['asian'],
-  '진건읍': ['japanese', 'western', 'snack', 'asian'],
+  '진건읍': ['chicken', 'hansik', 'japanese', 'western', 'snack', 'asian'],
   '오남읍': ['asian'],
-  '퇴계원읍': ['japanese', 'western', 'asian'],
-  '별내면': ['chinese', 'japanese', 'western', 'asian'],
-  '수동면': ['japanese', 'western', 'snack', 'asian'],
-  '조안면': ['chinese', 'japanese', 'western', 'snack', 'asian'],
-  '평내동': ['asian'],
-  '금곡동': ['japanese', 'western', 'asian'],
-  '양정동': ['chinese', 'japanese', 'western', 'snack', 'asian'],
+  '퇴계원읍': ['chicken', 'seafood', 'japanese', 'western', 'asian'],
+  '별내면': ['chicken', 'noodle', 'chinese', 'japanese', 'western', 'asian'],
+  '수동면': ['meat', 'chicken', 'seafood', 'noodle', 'hansik', 'japanese', 'western', 'snack', 'asian'],
+  '조안면': ['noodle', 'soup', 'chinese', 'japanese', 'western', 'snack', 'asian'],
+  '호평동': ['hansik'],
+  '평내동': ['chicken', 'hansik', 'asian'],
+  '금곡동': ['chicken', 'hansik', 'japanese', 'western', 'asian'],
+  '양정동': ['meat', 'chicken', 'seafood', 'noodle', 'soup', 'hansik', 'chinese', 'japanese', 'western', 'snack', 'asian'],
 };
 
 export function isVisible(areaKey, categoryKey) {

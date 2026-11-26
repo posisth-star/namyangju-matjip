@@ -12,17 +12,17 @@ test('HIDDEN only uses known areas and categories, never 전체', () => {
   }
 });
 test('isVisible follows HIDDEN; 전체 tab and 남양주 전체 always visible', () => {
-  assert.equal(isVisible('조안면', 'chinese'), false);
-  assert.equal(isVisible('조안면', 'korean'), true);
-  assert.equal(isVisible('조안면', 'all'), true);
-  assert.equal(isVisible('all', 'asian'), true);
-  assert.equal(isVisible('다산동', 'asian'), true);
+  const [areaKey, cats] = Object.entries(HIDDEN)[0];
+  assert.equal(isVisible(areaKey, cats[0]), false);
+  assert.equal(isVisible(areaKey, 'all'), true);
+  assert.equal(isVisible('all', cats[0]), true);
 });
 test('visibleCategories / visibleAreas', () => {
-  assert.deepEqual(visibleCategories('조안면').map(c => c.key), ['all', 'korean']);
-  const asianAreas = visibleAreas('asian').map(a => a.key);
-  assert.ok(asianAreas.includes('all') && asianAreas.includes('다산동'));
-  assert.ok(!asianAreas.includes('조안면') && !asianAreas.includes('양정동'));
+  const [areaKey, cats] = Object.entries(HIDDEN)[0];
+  assert.ok(!visibleCategories(areaKey).some(c => cats.includes(c.key)));
+  assert.ok(visibleCategories(areaKey).some(c => c.key === 'all'));
+  assert.ok(!visibleAreas(cats[0]).some(a => a.key === areaKey));
+  assert.ok(visibleAreas(cats[0]).some(a => a.key === 'all'));
 });
 
 // ---- 2. 전체 탭 제외 분류 ----
@@ -37,13 +37,14 @@ test('전체 category excludes fast food, bakery/snacks and food shops', () => {
 
 // ---- 4. 주소로 화면 공유 ----
 test('parseUrlState reads valid values and ignores unknown ones', () => {
-  assert.deepEqual(parseUrlState('?area=다산동&cat=korean&q=칼국수&sort=name'),
-    { area: '다산동', active: 'korean', term: '칼국수', sortBy: 'name' });
+  assert.deepEqual(parseUrlState('?area=다산동&cat=soup&q=칼국수&sort=name'),
+    { area: '다산동', active: 'soup', term: '칼국수', sortBy: 'name' });
   assert.deepEqual(parseUrlState('?area=부산&cat=pizza&sort=zzz'), { area: 'all', active: 'all', term: '', sortBy: 'rank' });
   assert.deepEqual(parseUrlState(''), { area: 'all', active: 'all', term: '', sortBy: 'rank' });
 });
 test('parseUrlState falls back when the combination is hidden', () => {
-  assert.equal(parseUrlState('?area=조안면&cat=chinese').active, 'all');
+  const [areaKey, cats] = Object.entries(HIDDEN)[0];
+  assert.equal(parseUrlState(`?area=${encodeURIComponent(areaKey)}&cat=${cats[0]}`).active, 'all');
 });
 test('parseUrlState trims and limits search term', () => {
   assert.equal(parseUrlState('?q=' + encodeURIComponent('  냉면  ')).term, '냉면');
@@ -51,8 +52,8 @@ test('parseUrlState trims and limits search term', () => {
 });
 test('buildUrlQuery omits defaults and round-trips', () => {
   assert.equal(buildUrlQuery({ area: 'all', active: 'all', term: '', sortBy: 'rank' }), '');
-  const qs = buildUrlQuery({ area: '다산동', active: 'korean', term: '', sortBy: 'rank' });
-  assert.deepEqual(parseUrlState(qs), { area: '다산동', active: 'korean', term: '', sortBy: 'rank' });
+  const qs = buildUrlQuery({ area: '다산동', active: 'soup', term: '', sortBy: 'rank' });
+  assert.deepEqual(parseUrlState(qs), { area: '다산동', active: 'soup', term: '', sortBy: 'rank' });
   const qs2 = buildUrlQuery({ area: 'all', active: 'all', term: '순대 국밥', sortBy: 'name' });
   assert.deepEqual(parseUrlState(qs2), { area: 'all', active: 'all', term: '순대 국밥', sortBy: 'name' });
 });

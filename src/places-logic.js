@@ -33,19 +33,25 @@ const CHAIN_RE = new RegExp([
 ].join('|'));
 export const isChain = (name) => CHAIN_RE.test(String(name ?? ''));
 
-// 점심 맛집이 목적이라 술집(호프·요리주점·이자카야 등)은 목록과 검색 모두에서 뺀다
+// 점심 맛집이 목적이라 술집(호프·요리주점·이자카야 등)은 목록과 검색 모두에서 뺀다. 공개 서비스라 사철탕·영양탕도 뺀다.
 const LUNCH_EXCLUDE = ['술집'];
+const PATH_EXCLUDE = ['한식 > 사철탕,영양탕'];
+const pathOf = (categoryName) => String(categoryName ?? '').split(' > ').slice(1).join(' > '); // '음식점' 뒤
+const startsPath = (path, p) => (p.endsWith('=') ? path === p.slice(0, -1) : path === p || path.startsWith(`${p} > `));
 export function isLunchPlace(categoryName) {
-  const second = String(categoryName ?? '').split(' > ')[1] ?? '';
-  return !LUNCH_EXCLUDE.some((x) => second.includes(x));
+  const path = pathOf(categoryName);
+  const second = path.split(' > ')[0] ?? '';
+  return !LUNCH_EXCLUDE.some((x) => second.includes(x)) && !PATH_EXCLUDE.some((p) => startsPath(path, p));
 }
 
 export function matchesCategory(categoryName, category) {
-  if (!isLunchPlace(categoryName)) return false;
-  const second = String(categoryName ?? '').split(' > ')[1] ?? '';
+  const path = pathOf(categoryName);
+  if (!path || !isLunchPlace(categoryName)) return false;
+  const second = path.split(' > ')[0] ?? '';
   if (category.exclude?.some((x) => second.includes(x))) return false;
-  if (category.match == null) return true;
-  return second.includes(category.match);
+  if (category.notPaths?.some((p) => startsPath(path, p))) return false;
+  if (category.paths == null) return true;
+  return category.paths.some((p) => startsPath(path, p));
 }
 
 export function toRestaurant(doc) {

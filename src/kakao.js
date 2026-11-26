@@ -62,7 +62,6 @@ export function createFetcher(keywordSearch, sdk, options = {}) {
       searchTop(keywordSearch, q, category.groupCode, sdk, options.timeoutMs)
         .then((docs) => docs.filter((d) => inArea(d) && matchesCategory(d.category_name, category) && !isChain(d.place_name)))))
       .then((lists) => dedupeById(mergeRanked(lists).map((d) => toRestaurant(d)))
-        .slice(0, MAX_VISIBLE)
         .map((r, i) => ({ ...r, rank: i + 1 })));
     cache.set(cacheKey, p);
     p.catch(() => cache.delete(cacheKey));
@@ -93,7 +92,6 @@ export function createSearcher(keywordSearch, sdk, options = {}) {
     const p = Promise.all(area.queries.map((q) =>
       searchTop(keywordSearch, `${q} ${term}`, 'FD6', sdk, options.timeoutMs).then((docs) => docs.filter(keep))))
       .then((lists) => dedupeById(mergeRanked(lists).map((d) => toRestaurant(d)))
-        .slice(0, MAX_VISIBLE)
         .map((r, i) => ({ ...r, rank: i + 1 })));
     cache.set(cacheKey, p);
     p.catch(() => cache.delete(cacheKey));

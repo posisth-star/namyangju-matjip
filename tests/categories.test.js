@@ -2,11 +2,35 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CATEGORIES, AREAS, CITY } from '../src/categories.js';
 
-test('category order and codes', () => {
-  assert.deepEqual(CATEGORIES.map(c => c.label), ['전체', '한식', '중식', '일식', '양식', '분식', '아시아음식']);
+import { matchesCategory } from '../src/places-logic.js';
+const cat = (k) => CATEGORIES.find(c => c.key === k);
+const path = (p) => `음식점 > ${p}`;
+
+test('menu tabs in order (남양주 맞춤)', () => {
+  assert.deepEqual(CATEGORIES.map(c => c.label),
+    ['전체', '고기·구이', '닭갈비·오리·백숙', '회·장어·해물', '막국수·면', '국밥·탕', '한식·한정식', '중식', '일식·돈까스', '양식·피자', '분식', '아시안']);
   for (const c of CATEGORIES) {
-    if (c.key === 'all') { assert.equal(c.groupCode, 'FD6'); assert.equal(c.match, null); assert.deepEqual(c.queries, ['맛집', '']); }
-    else { assert.equal(c.groupCode, 'FD6'); assert.equal(c.match, c.label); assert.deepEqual(c.queries, [c.label]); }
+    assert.equal(c.groupCode, 'FD6', c.key);
+    assert.ok(c.queries.length >= 1, c.key);
+    if (c.key === 'all') { assert.equal(c.paths, null); assert.deepEqual(c.queries, ['맛집', '']); }
+    else assert.ok(c.paths.length >= 1, c.key);
+  }
+});
+test('tabs match the right Kakao categories', () => {
+  const yes = [['meat', '한식 > 육류,고기 > 갈비'], ['meat', '한식 > 육류,고기 > 족발,보쌈'], ['meat', '한식 > 육류,고기'],
+    ['chicken', '한식 > 육류,고기 > 닭요리'], ['chicken', '한식 > 육류,고기 > 오리'], ['seafood', '한식 > 해물,생선 > 장어'], ['seafood', '한식 > 해물,생선 > 회'],
+    ['noodle', '한식 > 국수 > 칼국수'], ['noodle', '한식 > 냉면'], ['soup', '한식 > 감자탕'], ['soup', '한식 > 순대'],
+    ['hansik', '한식 > 한정식'], ['hansik', '한식 > 두부전문점'], ['hansik', '뷔페 > 한식뷔페'], ['hansik', '한식'],
+    ['chinese', '중식 > 양꼬치'], ['japanese', '일식 > 돈까스,우동'], ['western', '양식 > 피자'], ['snack', '분식 > 떡볶이'], ['asian', '아시아음식 > 동남아음식']];
+  for (const [k, p] of yes) assert.equal(matchesCategory(path(p), cat(k)), true, `${k} <- ${p}`);
+  const no = [['meat', '한식 > 육류,고기 > 닭요리'], ['meat', '한식 > 육류,고기 > 오리'], ['chicken', '한식 > 육류,고기 > 갈비'],
+    ['hansik', '한식 > 국밥'], ['soup', '한식 > 해물,생선'], ['noodle', '일식 > 초밥,롤']];
+  for (const [k, p] of no) assert.equal(matchesCategory(path(p), cat(k)), false, `${k} x ${p}`);
+});
+test('사철탕·영양탕 and bars are excluded everywhere', () => {
+  for (const c of CATEGORIES) {
+    assert.equal(matchesCategory(path('한식 > 사철탕,영양탕'), c), false, c.key);
+    assert.equal(matchesCategory(path('술집 > 호프,요리주점'), c), false, c.key);
   }
 });
 

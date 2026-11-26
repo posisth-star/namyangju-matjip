@@ -47,9 +47,9 @@ test('ZERO_RESULT → empty', async () => {
 test('fetcher keeps only 남양주 addresses and category, ranks in order', async () => {
   const docs = [doc('a'), doc('x', '서울 노원구 상계동 1'), doc('y', '경기 남양주시 다산동 1', '음식점 > 중식'), doc('b', '경기 남양주시 화도읍 1'), doc('a')];
   const s = fakeRanked(docs);
-  const out = await createFetcher(s, sdk)('all', 'korean');
+  const out = await createFetcher(s, sdk)('all', 'noodle');
   assert.deepEqual(out.map(x => [x.id, x.rank, x.area]), [['a', 1, '별내동'], ['b', 2, '화도읍']]);
-  assert.equal(s.calls[0].q, '남양주 한식');
+  assert.deepEqual(s.calls.filter(c => c.o.page === 1).map(c => c.q), ['남양주 막국수', '남양주 칼국수', '남양주 냉면']);
 });
 
 test('fetcher uses area in query', async () => {
@@ -62,10 +62,10 @@ test('fetcher uses area in query', async () => {
 test('caches per area+category', async () => {
   const s = fakeRanked(ranked(3));
   const f = createFetcher(s, sdk);
-  await f('all', 'korean'); await f('all', 'korean');
-  assert.equal(s.calls.length, 1);
-  await f(areaKey('별내동'), 'korean');
-  assert.equal(s.calls.length, 2);
+  await f('all', 'noodle'); const n = s.calls.length; await f('all', 'noodle');
+  assert.equal(s.calls.length, n);
+  await f(areaKey('별내동'), 'noodle');
+  assert.equal(s.calls.length, n * 2);
 });
 
 test('rejects on ERROR and retries after failure', async () => {
@@ -73,9 +73,9 @@ test('rejects on ERROR and retries after failure', async () => {
   const ok = fakeRanked(ranked(3));
   const s = (q, cb, o) => (fail ? setTimeout(() => cb([], 'ERR', {}), 0) : ok(q, cb, o));
   const f = createFetcher(s, sdk);
-  await assert.rejects(f('all', 'korean'));
+  await assert.rejects(f('all', 'noodle'));
   fail = false;
-  assert.equal((await f('all', 'korean')).length, 3);
+  assert.equal((await f('all', 'noodle')).length, 3);
 });
 
 test('times out when callback never comes', async () => {
@@ -90,29 +90,30 @@ test('rejects when keywordSearch throws on a later page', async () => {
 
 test('area mode keeps only addresses in that area (drops neighbours)', async () => {
   const docs = [doc('a', '경기 남양주시 퇴계원읍 퇴계원리 1'), doc('b', '경기 남양주시 별내동 1'), doc('c', '경기 남양주시 퇴계원읍 2')];
-  const out = await createFetcher(fakeRanked(docs), sdk)(areaKey('퇴계원읍'), 'korean');
+  const out = await createFetcher(fakeRanked(docs), sdk)(areaKey('퇴계원읍'), 'noodle');
   assert.deepEqual(out.map(x => [x.id, x.rank]), [['a', 1], ['c', 2]]);
 });
 
 test('multi-legal area queries each legal dong and merges', async () => {
   const byQuery = {
-    '남양주 일패동 한식': [doc('i1', '경기 남양주시 일패동 1')],
-    '남양주 이패동 한식': [doc('e1', '경기 남양주시 이패동 1'), doc('x', '경기 남양주시 다산동 1')],
-    '남양주 삼패동 한식': [doc('s1', '경기 남양주시 삼패동 1'), doc('s2', '경기 남양주시 삼패동 2')],
+    '남양주 일패동 막국수': [doc('i1', '경기 남양주시 일패동 1')],
+    '남양주 이패동 막국수': [doc('e1', '경기 남양주시 이패동 1'), doc('x', '경기 남양주시 다산동 1')],
+    '남양주 삼패동 막국수': [doc('s1', '경기 남양주시 삼패동 1'), doc('s2', '경기 남양주시 삼패동 2')],
   };
   const calls = [];
   const s = (q, cb, o) => { calls.push(q); setTimeout(() => cb(byQuery[q] ?? [], (byQuery[q] ?? []).length ? 'OK' : 'ZERO', { hasNextPage: false }), 0); };
-  const out = await createFetcher(s, sdk)(areaKey('양정동'), 'korean');
-  assert.deepEqual(calls.sort(), Object.keys(byQuery).sort());
+  const out = await createFetcher(s, sdk)(areaKey('양정동'), 'noodle');
+  const expected = ['일패동', '이패동', '삼패동'].flatMap(l => ['막국수', '칼국수', '냉면'].map(w => `남양주 ${l} ${w}`));
+  assert.deepEqual(calls.sort(), expected.sort());
   assert.deepEqual(out.map(x => x.id), ['i1', 'e1', 's1', 's2']);
   assert.deepEqual(out.map(x => x.rank), [1, 2, 3, 4]);
 });
 
-test('caps merged results at 45', async () => {
-  const many = (p) => Array.from({ length: 45 }, (_, i) => doc(p + i, '경기 남양주시 삼패동 1'));
-  const s = (q, cb, o) => setTimeout(() => cb(o.page === 1 ? many(q).slice(0, 15) : [], o.page === 1 ? 'OK' : 'ZERO', { hasNextPage: false }), 0);
-  const out = await createFetcher(s, sdk)(areaKey('양정동'), 'korean');
-  assert.ok(out.length <= 45);
+test('merged results are not capped at 45 (several search words per tab)', async () => {
+  const many = (p) => Array.from({ length: 15 }, (_, i) => doc(p + i, '경기 남양주시 삼패동 1'));
+  const s = (q, cb, o) => setTimeout(() => cb(o.page === 1 ? many(q) : [], o.page === 1 ? 'OK' : 'ZERO', { hasNextPage: false }), 0);
+  const out = await createFetcher(s, sdk)(areaKey('양정동'), 'noodle');
+  assert.equal(out.length, 135);
 });
 
 test('전체 category searches both "맛집" and plain area name, merged', async () => {
