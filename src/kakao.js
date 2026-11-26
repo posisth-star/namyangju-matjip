@@ -1,7 +1,7 @@
 // 카카오 장소 검색: '남양주 + 지역 + 종류' 키워드로 카카오 추천(정확도) 순 상위 45곳을 받는다.
 // 장소 정보는 저장하지 않고 페이지가 열려 있는 동안 메모리에만 둔다.
 import { CATEGORIES, AREAS, CITY } from './categories.js';
-import { toRestaurant, matchesCategory, dedupeById, areaOf } from './places-logic.js';
+import { toRestaurant, matchesCategory, dedupeById, areaOf, isLunchPlace } from './places-logic.js';
 
 const PAGE_SIZE = 15;
 const MAX_VISIBLE = 45; // 카카오가 한 검색에 노출하는 최대 건수
@@ -85,7 +85,7 @@ export function createSearcher(keywordSearch, sdk, options = {}) {
     const needle = compact(term);
     const keep = (d) => {
       const addr = String(d.address_name ?? '');
-      if (!addr.includes(`${CITY}시`)) return false;
+      if (!addr.includes(`${CITY}시`) || !isLunchPlace(d.category_name)) return false;
       if (area.legal == null) return true;
       if (!area.legal.includes(areaOf(addr))) return false;
       return compact(d.place_name).includes(needle) || compact(d.category_name).includes(needle);

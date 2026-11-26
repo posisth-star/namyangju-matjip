@@ -57,3 +57,8 @@ test('buildUrlQuery omits defaults and round-trips', () => {
   assert.deepEqual(parseUrlState(qs2), { area: 'all', active: 'all', term: '순대 국밥', sortBy: 'name' });
 });
 
+
+// ---- 점심 기준: 술집 제외 ----
+test('bars are excluded from every category', () => {
+  for (const c of CATEGORIES) assert.equal(matchesCategory('음식점 > 술집 > 호프,요리주점', c), false, c.key);
+});

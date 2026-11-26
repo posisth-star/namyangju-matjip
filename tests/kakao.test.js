@@ -166,3 +166,9 @@ test('search caches per area+term and rejects empty term', async () => {
   assert.equal(s.calls.length, 1);
   await assert.rejects(f('all', '   '));
 });
+
+test('search drops bars', async () => {
+  const s = byQueryFake({ '남양주 치킨': [doc('b', '경기 남양주시 와부읍 1', '음식점 > 술집 > 호프,요리주점'), doc('c', '경기 남양주시 와부읍 2', '음식점 > 치킨')] });
+  const out = await createSearcher(s, sdk)('all', '치킨');
+  assert.deepEqual(out.map(x => x.id), ['c']);
+});
