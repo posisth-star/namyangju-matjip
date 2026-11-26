@@ -1,21 +1,24 @@
 // 화면 조각을 HTML 문자열로 만드는 순수 함수들
+import { MIN_COUNT } from './categories.js';
+
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const link = (href, text) =>
   `<a class="btn" href="${esc(href)}" target="_blank" rel="noopener">${text}</a>`;
 
-export function renderTabs(categories, activeKey) {
-  return categories.map((c) => {
+// counts: { 종류키: 식당 수 }. 5곳 이하인 종류는 숨기되, 전체 탭과 아직 모르는 종류는 보여준다.
+export function renderTabs(categories, activeKey, counts = {}) {
+  return categories.filter((c) => c.key === 'all' || counts[c.key] == null || counts[c.key] >= MIN_COUNT).map((c) => {
     const on = c.key === activeKey;
     return `<button type="button" role="tab" class="tab${on ? ' active' : ''}" data-key="${esc(c.key)}" aria-selected="${on}">${esc(c.label)}</button>`;
   }).join('');
 }
 
-// counts: { 지역키: 식당 수 }. 0곳인 지역은 숨기고, 아직 모르는 지역은 숫자 없이 보여준다.
+// counts: { 지역키: 식당 수 }. 5곳 이하인 지역은 숨기고(남양주 전체는 유지), 아직 모르는 지역은 숫자 없이 보여준다.
 export function renderAreaOptions(areas, activeKey, counts = {}) {
   return areas
-    .filter((a) => counts[a.key] !== 0)
+    .filter((a) => a.key === 'all' || counts[a.key] == null || counts[a.key] >= MIN_COUNT)
     .map((a) => {
       const n = counts[a.key];
       const label = n == null ? a.label : `${a.label} (${n})`;

@@ -1,11 +1,11 @@
 // 페이지 진입점: SDK 로드 → 지역·종류 선택 → 정렬 → 렌더
-import { CATEGORIES, AREAS } from './categories.js';
+import { CATEGORIES, AREAS, MIN_COUNT } from './categories.js';
 import { sortRestaurants } from './places-logic.js';
 import { createFetcher, withTimeout } from './kakao.js';
 import { renderTabs, renderList, renderLoading, renderError, renderAreaOptions } from './ui.js';
 
 const $ = (id) => document.getElementById(id);
-const state = { area: AREAS[0].key, active: CATEGORIES[0].key, sortBy: 'rank', data: null, fetchFor: null };
+const state = { area: AREAS[0].key, active: CATEGORIES[0].key, sortBy: 'rank', data: null, fetchFor: null, tabCounts: {} };
 const areaLabel = () => AREAS.find((a) => a.key === state.area)?.label ?? '';
 
 export function loadKakaoSdk(appKey) {
@@ -19,7 +19,7 @@ export function loadKakaoSdk(appKey) {
 }
 
 function paint() {
-  $('tabs').innerHTML = renderTabs(CATEGORIES, state.active);
+  $('tabs').innerHTML = renderTabs(CATEGORIES, state.active, state.tabCounts);
   if (state.data) $('list').innerHTML = renderList(sortRestaurants(state.data, state.sortBy), { areaLabel: areaLabel() });
 }
 
@@ -32,9 +32,26 @@ async function refreshAreaCounts(categoryKey) {
     .then((list) => { counts[a.key] = list.length; })
     .catch(() => { /* 실패한 지역은 숫자 없이 둔다 */ })));
   if (state.active !== categoryKey) return; // 그 사이 종류가 바뀌었으면 무시
-  // 지금 고른 지역이 0곳이면 남양주 전체로 돌린다
-  if (counts[state.area] === 0) { state.area = AREAS[0].key; paintAreas(); show(); return; }
+  // 지금 고른 지역이 5곳 이하면 남양주 전체로 돌린다
+  if (state.area !== AREAS[0].key && counts[state.area] != null && counts[state.area] < MIN_COUNT) {
+    state.area = AREAS[0].key; paintAreas(); show(); refreshTabCounts(state.area); return;
+  }
   paintAreas();
+}
+
+// 현재 지역에서 종류별 식당 수를 조회해 종류 탭을 갱신한다. 5곳 이하인 종류 탭은 빠진다.
+async function refreshTabCounts(areaKey) {
+  const counts = {};
+  state.tabCounts = counts;
+  await Promise.all(CATEGORIES.map((c) => state.fetchFor(areaKey, c.key)
+    .then((list) => { counts[c.key] = list.length; })
+    .catch(() => { /* 실패한 종류는 탭을 그대로 둔다 */ })));
+  if (state.area !== areaKey || state.tabCounts !== counts) return; // 그 사이 지역이 바뀌었으면 무시
+  // 지금 고른 종류가 5곳 이하면 전체 탭으로 돌린다
+  if (state.active !== 'all' && counts[state.active] != null && counts[state.active] < MIN_COUNT) {
+    state.active = 'all'; show(); refreshAreaCounts(state.active); return;
+  }
+  paint();
 }
 
 async function show() {
@@ -86,10 +103,11 @@ async function main() {
       refreshAreaCounts(state.active);
     }
   });
-  $('area')?.addEventListener('change', (ev) => { state.area = ev.target.value; show(); });
+  $('area')?.addEventListener('change', (ev) => { state.area = ev.target.value; show(); refreshTabCounts(state.area); });
   $('sortBy')?.addEventListener('change', (ev) => { state.sortBy = ev.target.value; paint(); });
   show();
   refreshAreaCounts(state.active);
+  refreshTabCounts(state.area);
 }
 
 main();
