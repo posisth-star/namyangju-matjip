@@ -30,6 +30,8 @@ const CHAIN_RE = new RegExp([
   '신전떡볶이', '피자헛', '두끼', '청년다방', '파파존스', '미스터피자', '피자마루', '반올림피자', '7번가피자', '59쌀피자',
   '고피자', '죠스떡볶이', '국대떡볶이', '응급실떡볶이', '맘스터치', '롯데리아', '버거킹', '맥도날드', 'KFC', '한솥', '본죽',
   '본도시락', '이삭토스트', '서브웨이', '홍콩반점', '역전우동', '새마을식당', '빽다방',
+  '육대장', '돈까스클럽', '홍익돈까스', '명륜진사갈비', '등촌샤브', '김가네', '고봉민김밥', '바르다김선생', '신의주찹쌀순대',
+  '원할머니보쌈', '하남돼지집', '이차돌', '백채김치찌개', '한신포차', '쿠우쿠우', '애슐리',
 ].join('|'));
 export const isChain = (name) => CHAIN_RE.test(String(name ?? ''));
 
@@ -63,6 +65,7 @@ export function toRestaurant(doc) {
     name: doc.place_name,
     subCategory: parts[parts.length - 1] ?? '',
     area,
+    road,
     phone: doc.phone ?? '',
     kakaoUrl: String(doc.place_url ?? '').replace(/^http:/, 'https:'),
     naverUrl: naverSearchUrl(doc.place_name, { road, area }),

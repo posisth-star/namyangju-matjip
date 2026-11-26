@@ -34,3 +34,9 @@ test('search summary and empty message', () => {
 test('tabs: no active tab during search', () => {
   assert.equal((renderTabs(CATEGORIES, null).match(/aria-selected="true"/g) || []).length, 0);
 });
+
+test('card shows the road name next to the area', () => {
+  const html = renderList([r({ road: '다산중앙로' })], { areaLabel: '다산동' });
+  assert.ok(html.includes('📍 다산중앙로'));
+  assert.ok(!renderList([r({ road: '' })], {}).includes('📍'));
+});

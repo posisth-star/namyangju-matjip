@@ -181,3 +181,11 @@ test('category tabs hide franchises, but name search still finds them', async ()
   const s2 = byQueryFake({ '남양주 피자스쿨': [{ ...doc('c', '경기 남양주시 별내동 1', '음식점 > 양식 > 피자'), place_name: '피자스쿨 별내점' }] });
   assert.equal((await createSearcher(s2, sdk)('all', '피자스쿨')).length, 1);
 });
+
+test('category tabs fetch at most 2 pages per search word (saves Kakao calls)', async () => {
+  const s = fakeRanked(ranked(60));
+  await createFetcher(s, sdk)('all', 'noodle');
+  const pagesPerQuery = {};
+  for (const c of s.calls) pagesPerQuery[c.q] = Math.max(pagesPerQuery[c.q] ?? 0, c.o.page);
+  assert.deepEqual(Object.values(pagesPerQuery), [2, 2, 2]);
+});

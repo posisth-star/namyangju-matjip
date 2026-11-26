@@ -22,7 +22,7 @@ function renderCard(x) {
   const phone = x.phone ? `<a class="phone" href="tel:${esc(x.phone)}">${esc(x.phone)}</a>` : '';
   return `<li class="card">
   <div class="card-head"><h3>${x.rank ? `<span class="rank">추천 ${x.rank}위</span> ` : ''}${esc(x.name)}</h3><span class="walk">${esc(x.area)}</span></div>
-  <div class="meta">${x.subCategory ? `<span class="sub">${esc(x.subCategory)}</span>` : ''}${phone}</div>
+  <div class="meta">${x.subCategory ? `<span class="sub">${esc(x.subCategory)}</span>` : ''}${x.road ? `<span class="addr">📍 ${esc(x.road)}</span>` : ''}${phone}</div>
   <div class="links">${link(x.naverUrl, '네이버에서 보기')}${link(x.kakaoUrl, '카카오맵에서 보기')}</div>
 </li>`;
 }

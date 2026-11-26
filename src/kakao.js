@@ -6,6 +6,7 @@ import { toRestaurant, matchesCategory, dedupeById, areaOf, isLunchPlace, isChai
 const PAGE_SIZE = 15;
 const MAX_VISIBLE = 45; // 카카오가 한 검색에 노출하는 최대 건수
 const DEFAULT_TIMEOUT_MS = 10000;
+const TAB_PAGES = 2;
 
 export function withTimeout(promise, ms, message = '시간 초과') {
   let timer;
@@ -21,7 +22,7 @@ export function mergeRanked(lists) {
   return out;
 }
 
-export function searchTop(keywordSearch, query, groupCode, sdk, timeoutMs = DEFAULT_TIMEOUT_MS) {
+export function searchTop(keywordSearch, query, groupCode, sdk, timeoutMs = DEFAULT_TIMEOUT_MS, maxPages = 3) {
   const search = new Promise((resolve, reject) => {
     const docs = [];
     const fetchPage = (page) => {
@@ -30,7 +31,7 @@ export function searchTop(keywordSearch, query, groupCode, sdk, timeoutMs = DEFA
         keywordSearch(query, (result, status, pagination) => {
           if (status === sdk.Status.OK) {
             docs.push(...result);
-            if (pagination?.hasNextPage && page * PAGE_SIZE < MAX_VISIBLE) fetchPage(page + 1);
+            if (pagination?.hasNextPage && page < maxPages && page * PAGE_SIZE < MAX_VISIBLE) fetchPage(page + 1);
             else resolve(docs);
           } else if (status === sdk.Status.ZERO_RESULT) resolve(docs);
           else reject(new Error(`카카오 장소 검색 실패: ${status}`));
@@ -58,8 +59,9 @@ export function createFetcher(keywordSearch, sdk, options = {}) {
       return area.legal == null || area.legal.includes(areaOf(addr));
     };
     const queries = area.queries.flatMap((a) => category.queries.map((c) => `${a} ${c}`.trim()));
+    // 탭은 검색어가 여러 개라, 카카오 호출을 아끼려고 검색어마다 2페이지(최대 30곳)까지만 받는다
     const p = Promise.all(queries.map((q) =>
-      searchTop(keywordSearch, q, category.groupCode, sdk, options.timeoutMs)
+      searchTop(keywordSearch, q, category.groupCode, sdk, options.timeoutMs, TAB_PAGES)
         .then((docs) => docs.filter((d) => inArea(d) && matchesCategory(d.category_name, category) && !isChain(d.place_name)))))
       .then((lists) => dedupeById(mergeRanked(lists).map((d) => toRestaurant(d)))
         .map((r, i) => ({ ...r, rank: i + 1 })));

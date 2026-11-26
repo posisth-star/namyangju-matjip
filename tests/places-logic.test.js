@@ -67,3 +67,13 @@ test('isChain recognises common franchises', () => {
     assert.equal(isChain(n), true, n);
   for (const n of ['목향원', '황해칼국수', '북한강막국수닭갈비', '소리소시골밥상']) assert.equal(isChain(n), false, n);
 });
+
+test('isChain also covers franchises that ranked high in 남양주 tabs', () => {
+  for (const n of ['육대장 덕소점', '돈까스클럽 남양주점', '홍익돈까스 남양주별내점', '명륜진사갈비 다산점', '등촌샤브칼국수 다산점', '김가네 진접점', '고봉민김밥인 호평점'])
+    assert.equal(isChain(n), true, n);
+  for (const n of ['지팡이국밥 남양주본점', '호시카와', '스시쿠모']) assert.equal(isChain(n), false, n);
+});
+test('toRestaurant keeps the road name for the card', () => {
+  const x = toRestaurant({ id: '1', place_name: 'A', category_name: '음식점 > 한식', address_name: '경기 남양주시 다산동 1', road_address_name: '경기 남양주시 다산중앙로 123' });
+  assert.equal(x.road, '다산중앙로');
+});

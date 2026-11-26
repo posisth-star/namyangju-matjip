@@ -27,8 +27,18 @@ function syncUrl() {
 }
 
 // 탭은 지금 지역에서 보이는 종류만, 지역 목록은 지금 종류에서 보이는 지역만 (검색 중엔 모든 지역)
+// 탭이 오른쪽으로 더 있으면 끝을 흐리게 표시
+function updateTabFade() {
+  const t = $('tabs');
+  t.parentElement?.classList.toggle('more', t.scrollLeft + t.clientWidth < t.scrollWidth - 4);
+}
+
 function paintControls() {
+  // 탭을 다시 그려도 키보드 포커스가 사라지지 않게, 포커스가 있던 탭을 기억했다가 되돌린다
+  const focusedKey = document.activeElement?.closest?.('#tabs [data-key]')?.dataset.key;
   $('tabs').innerHTML = renderTabs(visibleCategories(state.area), state.term ? null : state.active);
+  if (focusedKey) $('tabs').querySelector(`[data-key="${focusedKey}"]`)?.focus({ preventScroll: true });
+  updateTabFade();
   if ($('area')) $('area').innerHTML = renderAreaOptions(state.term ? AREAS : visibleAreas(state.active), state.area);
   if ($('clearSearch')) $('clearSearch').hidden = !state.term;
   if ($('q') && $('q').value.trim() !== state.term) $('q').value = state.term;
@@ -89,6 +99,8 @@ async function main() {
   state.fetchFor = createFetcher(places.keywordSearch.bind(places), sdk);
   state.searchFor = createSearcher(places.keywordSearch.bind(places), sdk);
 
+  $('tabs').addEventListener('scroll', updateTabFade, { passive: true });
+  window.addEventListener('resize', updateTabFade);
   $('tabs').addEventListener('click', (ev) => {
     const btn = ev.target.closest('[data-key]');
     if (btn && (btn.dataset.key !== state.active || !state.data || state.term)) {

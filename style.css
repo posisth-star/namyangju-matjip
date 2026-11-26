@@ -2,6 +2,11 @@
 * { box-sizing: border-box; }
 body { margin:0; background:var(--bg); color:var(--fg); font-family: system-ui, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
 header, .controls, #list, #footer, #tabs { max-width: 720px; margin: 0 auto; padding: 0 16px; }
+/* 탭 영역은 스크롤해도 상단에 고정, 오른쪽에 탭이 더 있으면 끝을 흐리게 */
+.tabs-bar { position:sticky; top:0; z-index:10; max-width:720px; margin:0 auto; background:var(--bg); padding-top:8px; box-shadow:0 1px 0 var(--line); }
+.tabs-bar.more::after { content:''; position:absolute; top:0; right:0; bottom:0; width:48px; pointer-events:none; background:linear-gradient(to right, rgba(250,250,247,0), var(--bg)); }
+.tab:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.addr { color: var(--muted); }
 header { padding-top: 24px; }
 h1 { font-size: 1.4rem; margin: 0 0 4px; }
 .lead { color: var(--muted); margin: 0 0 16px; }
