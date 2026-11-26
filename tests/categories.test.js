@@ -54,3 +54,16 @@ test('areas search with 남양주 prefix and list legal dong names', () => {
   assert.deepEqual(by('다산동').legal, ['다산동', '수석동']);
   for (const a of AREAS.slice(1)) for (const q of a.queries) assert.ok(q.startsWith('남양주 '), q);
 });
+
+test('low-yield search words dropped (B): 짬뽕, 쌀국수, 스테이크', () => {
+  assert.deepEqual(cat('chinese').queries, ['중식']);
+  assert.deepEqual(cat('asian').queries, ['아시아음식']);
+  assert.deepEqual(cat('western').queries, ['파스타', '피자']);
+});
+test('multi-legal areas carry a search box (C); single-legal areas do not', () => {
+  for (const label of ['다산동', '양정동']) {
+    const b = AREAS.find(a => a.label === label).bounds;
+    assert.ok(b && b.sw.lat < b.ne.lat && b.sw.lng < b.ne.lng, label);
+  }
+  assert.equal(AREAS.find(a => a.label === '별내동').bounds, undefined);
+});

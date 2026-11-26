@@ -94,26 +94,34 @@ test('area mode keeps only addresses in that area (drops neighbours)', async () 
   assert.deepEqual(out.map(x => [x.id, x.rank]), [['a', 1], ['c', 2]]);
 });
 
-test('multi-legal area queries each legal dong and merges', async () => {
-  const byQuery = {
-    '남양주 일패동 막국수': [doc('i1', '경기 남양주시 일패동 1')],
-    '남양주 이패동 막국수': [doc('e1', '경기 남양주시 이패동 1'), doc('x', '경기 남양주시 다산동 1')],
-    '남양주 삼패동 막국수': [doc('s1', '경기 남양주시 삼패동 1'), doc('s2', '경기 남양주시 삼패동 2')],
-  };
+test('multi-legal area (양정동) searches its box once per word, then keeps only its 법정동', async () => {
   const calls = [];
-  const s = (q, cb, o) => { calls.push(q); setTimeout(() => cb(byQuery[q] ?? [], (byQuery[q] ?? []).length ? 'OK' : 'ZERO', { hasNextPage: false }), 0); };
+  const s = (q, cb, o) => { calls.push({ q, o }); const d = q === '막국수' ? [doc('i1', '경기 남양주시 일패동 1'), doc('x', '경기 남양주시 금곡동 1'), doc('s1', '경기 남양주시 삼패동 1')] : []; setTimeout(() => cb(d, d.length ? 'OK' : 'ZERO', { hasNextPage: false }), 0); };
   const out = await createFetcher(s, sdk)(areaKey('양정동'), 'noodle');
-  const expected = ['일패동', '이패동', '삼패동'].flatMap(l => ['막국수', '칼국수', '냉면'].map(w => `남양주 ${l} ${w}`));
-  assert.deepEqual(calls.sort(), expected.sort());
-  assert.deepEqual(out.map(x => x.id), ['i1', 'e1', 's1', 's2']);
-  assert.deepEqual(out.map(x => x.rank), [1, 2, 3, 4]);
+  assert.deepEqual(calls.map(c => c.q), ['막국수', '칼국수', '냉면']);
+  assert.ok(calls.every(c => c.o.bounds && c.o.bounds.sw && c.o.bounds.ne));
+  assert.deepEqual(out.map(x => x.id), ['i1', 's1']);
 });
 
-test('merged results are not capped at 45 (several search words per tab)', async () => {
-  const many = (p) => Array.from({ length: 15 }, (_, i) => doc(p + i, '경기 남양주시 삼패동 1'));
-  const s = (q, cb, o) => setTimeout(() => cb(o.page === 1 ? many(q) : [], o.page === 1 ? 'OK' : 'ZERO', { hasNextPage: false }), 0);
-  const out = await createFetcher(s, sdk)(areaKey('양정동'), 'noodle');
-  assert.equal(out.length, 135);
+test('first view loads page 1 only; more() loads the next page and appends', async () => {
+  const s = fakeRanked(ranked(40));
+  const f = createFetcher(s, sdk);
+  const first = await f(areaKey('별내동'), 'noodle');
+  assert.ok(s.calls.every(c => c.o.page === 1));
+  assert.equal(s.calls.length, 3);
+  assert.equal(first.length, 15);
+  assert.equal(first.hasMore, true);
+  const more = await f(areaKey('별내동'), 'noodle', { pages: 2 });
+  assert.equal(s.calls.length, 6);
+  assert.ok(s.calls.slice(3).every(c => c.o.page === 2));
+  assert.equal(more.length, 30);
+  assert.deepEqual(more.slice(0, 15).map(x => x.id), first.map(x => x.id));
+  const again = await f(areaKey('별내동'), 'noodle', { pages: 2 });
+  assert.equal(s.calls.length, 6);
+  assert.equal(again.length, 30);
+  const last = await f(areaKey('별내동'), 'noodle', { pages: 3 });
+  assert.equal(last.length, 40);
+  assert.equal(last.hasMore, false);
 });
 
 test('전체 category searches both "맛집" and plain area name, merged', async () => {
@@ -182,10 +190,17 @@ test('category tabs hide franchises, but name search still finds them', async ()
   assert.equal((await createSearcher(s2, sdk)('all', '피자스쿨')).length, 1);
 });
 
-test('category tabs fetch at most 2 pages per search word (saves Kakao calls)', async () => {
+test('first view costs one call per search word', async () => {
   const s = fakeRanked(ranked(60));
-  await createFetcher(s, sdk)('all', 'noodle');
-  const pagesPerQuery = {};
-  for (const c of s.calls) pagesPerQuery[c.q] = Math.max(pagesPerQuery[c.q] ?? 0, c.o.page);
-  assert.deepEqual(Object.values(pagesPerQuery), [2, 2, 2]);
+  const out = await createFetcher(s, sdk)('all', 'noodle');
+  assert.equal(s.calls.length, 3);
+  assert.equal(out.hasMore, true);
+});
+
+test('추천 tab in a multi-legal area still searches by 법정동 names (box search is weak for generic words)', async () => {
+  const calls = [];
+  const s = (q, cb, o) => { calls.push({ q, o }); setTimeout(() => cb([], 'ZERO', { hasNextPage: false }), 0); };
+  await createFetcher(s, sdk)(areaKey('양정동'), 'all');
+  assert.ok(calls.every(c => !c.o.bounds));
+  assert.deepEqual(calls.map(c => c.q).sort(), ['일패동', '이패동', '삼패동'].flatMap(l => [`남양주 ${l} 맛집`, `남양주 ${l}`]).sort());
 });

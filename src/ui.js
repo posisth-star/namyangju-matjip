@@ -34,7 +34,8 @@ export function renderList(list, { areaLabel = '', term = '' } = {}) {
       : `<p class="notice">${esc(areaLabel)}에는 이 종류의 맛집 정보가 없어요.</p>`;
   }
   const scope = term ? `'${esc(term)}' 검색` : '카카오 추천순';
-  return `<p class="summary">${list.length}곳 · ${esc(areaLabel)} · ${scope}</p><ul class="cards">${list.map(renderCard).join('')}</ul>`;
+  const more = list.hasMore ? '<button type="button" id="more" class="btn more-btn">더 보기</button>' : '';
+  return `<p class="summary">${list.length}곳 · ${esc(areaLabel)} · ${scope}</p><ul class="cards">${list.map(renderCard).join('')}</ul>${more}`;
 }
 
 export function renderLoading() {
@@ -42,5 +43,5 @@ export function renderLoading() {
 }
 
 export function renderError() {
-  return '<p class="notice error">식당 정보를 불러오지 못했어요. <button type="button" id="retry" class="btn">다시 시도</button></p>';
+  return '<p class="notice error">지금 이용자가 많거나 일시적인 문제로 식당 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요. <button type="button" id="retry" class="btn">다시 시도</button></p>';
 }

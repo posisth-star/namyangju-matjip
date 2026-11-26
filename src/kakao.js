@@ -6,7 +6,6 @@ import { toRestaurant, matchesCategory, dedupeById, areaOf, isLunchPlace, isChai
 const PAGE_SIZE = 15;
 const MAX_VISIBLE = 45; // 카카오가 한 검색에 노출하는 최대 건수
 const DEFAULT_TIMEOUT_MS = 10000;
-const TAB_PAGES = 2;
 
 export function withTimeout(promise, ms, message = '시간 초과') {
   let timer;
@@ -45,29 +44,67 @@ export function searchTop(keywordSearch, query, groupCode, sdk, timeoutMs = DEFA
   return withTimeout(search, timeoutMs, '카카오 장소 검색 시간 초과');
 }
 
+// 검색어 하나의 한 페이지를 받는다
+export function searchPage(keywordSearch, query, groupCode, sdk, page, extra = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
+  const call = new Promise((resolve, reject) => {
+    try {
+      const options = { ...extra, category_group_code: groupCode, sort: sdk.sortAccuracy, size: PAGE_SIZE, page };
+      keywordSearch(query, (result, status, pagination) => {
+        if (status === sdk.Status.OK) resolve({ docs: result, hasNext: !!pagination?.hasNextPage && page * PAGE_SIZE < MAX_VISIBLE });
+        else if (status === sdk.Status.ZERO_RESULT) resolve({ docs: [], hasNext: false });
+        else reject(new Error(`카카오 장소 검색 실패: ${status}`));
+      }, options);
+    } catch (e) {
+      reject(e);
+    }
+  });
+  return withTimeout(call, timeoutMs, '카카오 장소 검색 시간 초과');
+}
+
+// 탭 목록: 처음엔 검색어마다 1페이지만 받고(카카오 호출 절약), '더 보기'를 누르면 다음 페이지를 이어 받는다.
+// 결과는 배열이고 hasMore(더 받을 페이지가 있는지)를 함께 단다. 같은 지역·탭은 받은 페이지를 기억해 다시 부르지 않는다.
 export function createFetcher(keywordSearch, sdk, options = {}) {
-  const cache = new Map();
-  return (areaKey, categoryKey) => {
-    const cacheKey = `${areaKey}:${categoryKey}`;
-    if (cache.has(cacheKey)) return cache.get(cacheKey);
+  const states = new Map();
+  return (areaKey, categoryKey, { pages = 1 } = {}) => {
     const area = AREAS.find((a) => a.key === areaKey);
     const category = CATEGORIES.find((c) => c.key === categoryKey);
     if (!area || !category) return Promise.reject(new Error(`알 수 없는 지역/종류: ${areaKey}/${categoryKey}`));
+    const cacheKey = `${areaKey}:${categoryKey}`;
+    let st = states.get(cacheKey);
+    if (!st) {
+      // 사각형이 있는 지역의 메뉴 탭은 검색어만(지역 이름 없이) 사각형 안에서 한 번씩 검색한다.
+      // 추천 탭('맛집'·지역명)은 사각형 검색 결과가 크게 줄어서 지금처럼 '지역 이름 + 검색어'로 검색한다.
+      const useBox = area.bounds && category.key !== 'all';
+      const extra = useBox ? { bounds: sdk.toBounds ? sdk.toBounds(area.bounds) : area.bounds } : {};
+      const words = useBox
+        ? category.queries
+        : area.queries.flatMap((a) => category.queries.map((w) => `${a} ${w}`.trim()));
+      st = { extra, items: words.map((q) => ({ q, pages: [], hasNext: true })), pending: null };
+      states.set(cacheKey, st);
+    }
     const inArea = (d) => {
       const addr = String(d.address_name ?? '');
       if (!addr.includes(`${CITY}시`)) return false;
       return area.legal == null || area.legal.includes(areaOf(addr));
     };
-    const queries = area.queries.flatMap((a) => category.queries.map((c) => `${a} ${c}`.trim()));
-    // 탭은 검색어가 여러 개라, 카카오 호출을 아끼려고 검색어마다 2페이지(최대 30곳)까지만 받는다
-    const p = Promise.all(queries.map((q) =>
-      searchTop(keywordSearch, q, category.groupCode, sdk, options.timeoutMs, TAB_PAGES)
-        .then((docs) => docs.filter((d) => inArea(d) && matchesCategory(d.category_name, category) && !isChain(d.place_name)))))
-      .then((lists) => dedupeById(mergeRanked(lists).map((d) => toRestaurant(d)))
-        .map((r, i) => ({ ...r, rank: i + 1 })));
-    cache.set(cacheKey, p);
-    p.catch(() => cache.delete(cacheKey));
-    return p;
+    const want = Math.min(Math.max(1, pages), Math.ceil(MAX_VISIBLE / PAGE_SIZE));
+    const run = async () => {
+      if (st.pending) await st.pending.catch(() => {});
+      const load = Promise.all(st.items.map(async (it) => {
+        while (it.hasNext && it.pages.length < want) {
+          const { docs, hasNext } = await searchPage(keywordSearch, it.q, category.groupCode, sdk, it.pages.length + 1, st.extra, options.timeoutMs);
+          it.pages.push(docs);
+          it.hasNext = hasNext;
+        }
+      }));
+      st.pending = load;
+      await load;
+      const lists = st.items.map((it) => it.pages.flat().filter((d) => inArea(d) && matchesCategory(d.category_name, category) && !isChain(d.place_name)));
+      const out = dedupeById(mergeRanked(lists).map((d) => toRestaurant(d))).map((r, i) => ({ ...r, rank: i + 1 }));
+      out.hasMore = st.items.some((it) => it.hasNext);
+      return out;
+    };
+    return run();
   };
 }
 

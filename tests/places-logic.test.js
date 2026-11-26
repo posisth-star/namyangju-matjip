@@ -77,3 +77,9 @@ test('toRestaurant keeps the road name for the card', () => {
   const x = toRestaurant({ id: '1', place_name: 'A', category_name: '음식점 > 한식', address_name: '경기 남양주시 다산동 1', road_address_name: '경기 남양주시 다산중앙로 123' });
   assert.equal(x.road, '다산중앙로');
 });
+
+test('sortRestaurants keeps the hasMore flag (더 보기 button)', () => {
+  const list = [r({ id: 'a', rank: 2 }), r({ id: 'b', rank: 1 })]; list.hasMore = true;
+  assert.equal(sortRestaurants(list, 'rank').hasMore, true);
+  assert.equal(sortRestaurants(list, 'name').hasMore, true);
+});

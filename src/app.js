@@ -7,7 +7,7 @@ import { parseUrlState, buildUrlQuery } from './url-state.js';
 
 const $ = (id) => document.getElementById(id);
 // 주소(?area=…&cat=…&q=…&sort=…)에 담긴 화면으로 시작한다
-const state = { ...parseUrlState(location.search), data: null, fetchFor: null, searchFor: null };
+const state = { ...parseUrlState(location.search), pages: 1, data: null, fetchFor: null, searchFor: null };
 const areaLabel = () => AREAS.find((a) => a.key === state.area)?.label ?? '';
 
 export function loadKakaoSdk(appKey) {
@@ -51,13 +51,14 @@ function paint() {
 }
 
 async function show() {
+  state.pages = 1;
   const { area, active, term } = state;
   state.data = null;
   syncUrl();
   paintControls();
   $('list').innerHTML = renderLoading();
   try {
-    const data = term ? await state.searchFor(area, term) : await state.fetchFor(area, active);
+    const data = term ? await state.searchFor(area, term) : await state.fetchFor(area, active, { pages: 1 });
     if (state.area !== area || state.active !== active || state.term !== term) return; // 그 사이 선택이 바뀌었으면 무시
     state.data = data;
     paint();
@@ -74,8 +75,28 @@ function setArea(areaKey) {
 }
 
 
+// 더 보기: 지금 탭의 다음 페이지를 이어 받는다(목록은 그대로 두고 아래에 붙음)
+async function loadMore(btn) {
+  const { area, active, term } = state;
+  if (term || !state.data?.hasMore) return;
+  btn.disabled = true;
+  btn.textContent = '불러오는 중…';
+  try {
+    const data = await state.fetchFor(area, active, { pages: state.pages + 1 });
+    if (state.area !== area || state.active !== active || state.term) return;
+    state.pages += 1;
+    state.data = data;
+    paint();
+  } catch (e) {
+    console.error(e);
+    btn.disabled = false;
+    btn.textContent = '더 보기 (다시 시도)';
+  }
+}
+
 // 다시 시도: SDK가 준비됐으면 현재 선택만 재호출, 아니면 새로고침
 document.addEventListener('click', (ev) => {
+  if (ev.target.id === 'more') { loadMore(ev.target); return; }
   if (ev.target.id !== 'retry') return;
   if (state.fetchFor) show();
   else location.reload();
@@ -93,9 +114,13 @@ async function main() {
     $('list').innerHTML = renderError();
     return;
   }
-  const { services } = window.kakao.maps;
+  const { services, LatLng, LatLngBounds } = window.kakao.maps;
   const places = new services.Places();
-  const sdk = { sortAccuracy: services.SortBy.ACCURACY, Status: services.Status };
+  const sdk = {
+    sortAccuracy: services.SortBy.ACCURACY,
+    Status: services.Status,
+    toBounds: (r) => new LatLngBounds(new LatLng(r.sw.lat, r.sw.lng), new LatLng(r.ne.lat, r.ne.lng)),
+  };
   state.fetchFor = createFetcher(places.keywordSearch.bind(places), sdk);
   state.searchFor = createSearcher(places.keywordSearch.bind(places), sdk);
 

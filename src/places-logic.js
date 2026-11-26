@@ -76,6 +76,7 @@ export function sortRestaurants(list, sortBy) {
   const copy = [...list];
   if (sortBy === 'name') copy.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
   else copy.sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity));
+  copy.hasMore = list.hasMore; // '더 보기' 여부를 정렬 뒤에도 유지
   return copy;
 }
 

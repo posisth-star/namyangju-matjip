@@ -40,3 +40,13 @@ test('card shows the road name next to the area', () => {
   assert.ok(html.includes('📍 다산중앙로'));
   assert.ok(!renderList([r({ road: '' })], {}).includes('📍'));
 });
+
+test('error message mentions heavy usage and retry', () => {
+  const html = renderError();
+  assert.ok(html.includes('이용자가 많') && html.includes('id="retry"'));
+});
+test('list shows a 더 보기 button only when more results exist', () => {
+  const list = [r()]; list.hasMore = true;
+  assert.ok(renderList(list, { areaLabel: '다산동' }).includes('id="more"'));
+  assert.ok(!renderList([r()], { areaLabel: '다산동' }).includes('id="more"'));
+});
