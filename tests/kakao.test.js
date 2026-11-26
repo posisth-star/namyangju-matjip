@@ -159,7 +159,7 @@ test('first view costs one call per search word', async () => {
   assert.equal(out.hasMore, true);
 });
 
-test('추천 tab in a multi-legal area still searches by 법정동 names (box search is weak for generic words)', async () => {
+test('전체 tab in a multi-legal area still searches by 법정동 names (box search is weak for generic words)', async () => {
   const calls = [];
   const s = (q, cb, o) => { calls.push({ q, o }); setTimeout(() => cb([], 'ZERO', { hasNextPage: false }), 0); };
   await createFetcher(s, sdk)(areaKey('양정동'), 'all');

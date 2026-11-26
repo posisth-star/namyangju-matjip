@@ -73,7 +73,7 @@ export function createFetcher(keywordSearch, sdk, options = {}) {
     let st = states.get(cacheKey);
     if (!st) {
       // 사각형이 있는 지역의 메뉴 탭은 검색어만(지역 이름 없이) 사각형 안에서 한 번씩 검색한다.
-      // 추천 탭('맛집'·지역명)은 사각형 검색 결과가 크게 줄어서 지금처럼 '지역 이름 + 검색어'로 검색한다.
+      // 전체 탭('맛집'·지역명)은 사각형 검색 결과가 크게 줄어서 지금처럼 '지역 이름 + 검색어'로 검색한다.
       const useBox = area.bounds && category.key !== 'all';
       const extra = useBox ? { bounds: sdk.toBounds ? sdk.toBounds(area.bounds) : area.bounds } : {};
       const words = useBox

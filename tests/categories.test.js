@@ -8,7 +8,7 @@ const path = (p) => `음식점 > ${p}`;
 
 test('menu tabs in order (남양주 맞춤)', () => {
   assert.deepEqual(CATEGORIES.map(c => c.label),
-    ['추천', '고기·구이', '닭갈비·오리·백숙', '회·장어·해물', '막국수·면', '국밥·탕', '한식·한정식', '중식', '일식·돈까스', '양식·피자', '분식', '아시안']);
+    ['전체', '고기·구이', '닭갈비·오리·백숙', '회·장어·해물', '막국수·면', '국밥·탕', '한식·한정식', '중식', '일식·돈까스', '양식·피자', '분식', '아시안']);
   for (const c of CATEGORIES) {
     assert.equal(c.groupCode, 'FD6', c.key);
     assert.ok(c.queries.length >= 1, c.key);
