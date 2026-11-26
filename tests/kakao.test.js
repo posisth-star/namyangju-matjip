@@ -104,22 +104,18 @@ test('multi-legal area (양정동) searches its box once per word, then keeps on
   assert.deepEqual(out.map(x => x.id), ['i1', 's1']);
 });
 
-test('first view loads page 1 only; more() loads the next page and appends', async () => {
+test('menu tab first view fills to 30 places, then more() loads the next page and appends', async () => {
+  // 검색어 3개가 같은 식당을 돌려줘서 1페이지는 15곳 → 30곳이 찰 때까지 2페이지까지 받는다
   const s = fakeRanked(ranked(40));
   const f = createFetcher(s, sdk);
   const first = await f(areaKey('별내동'), 'noodle');
-  assert.ok(s.calls.every(c => c.o.page === 1));
-  assert.equal(s.calls.length, 3);
-  assert.equal(first.length, 15);
+  assert.equal(s.calls.length, 6);
+  assert.equal(first.length, 30);
   assert.equal(first.hasMore, true);
-  const more = await f(areaKey('별내동'), 'noodle', { pages: 2 });
-  assert.equal(s.calls.length, 6);
-  assert.ok(s.calls.slice(3).every(c => c.o.page === 2));
-  assert.equal(more.length, 30);
-  assert.deepEqual(more.slice(0, 15).map(x => x.id), first.map(x => x.id));
+  assert.equal(first.pages, 2);
   const again = await f(areaKey('별내동'), 'noodle', { pages: 2 });
-  assert.equal(s.calls.length, 6);
-  assert.equal(again.length, 30);
+  assert.equal(s.calls.length, 6); // 이미 받은 페이지는 다시 부르지 않는다
+  assert.deepEqual(again.map(x => x.id), first.map(x => x.id));
   const last = await f(areaKey('별내동'), 'noodle', { pages: 3 });
   assert.equal(last.length, 40);
   assert.equal(last.hasMore, false);
@@ -152,10 +148,14 @@ test('category tabs hide franchises; the search feature no longer exists', async
   assert.equal(kakao.createSearcher, undefined);
 });
 
-test('first view costs one call per search word', async () => {
-  const s = fakeRanked(ranked(60));
+test('menu tab first view costs one call per search word when page 1 already has 30+ places', async () => {
+  // 검색어 3개가 서로 다른 식당 15곳씩 → 1페이지에 45곳, 더 받지 않고 자르지도 않는다
+  const byQ = { '남양주 막국수': distinct('a', 45), '남양주 칼국수': distinct('b', 45), '남양주 냉면': distinct('c', 45) };
+  const calls = [];
+  const s = (q, cb, o) => { calls.push(q); const all = byQ[q] ?? [], page = all.slice((o.page - 1) * 15, o.page * 15); setTimeout(() => cb(page, page.length ? 'OK' : 'ZERO', { hasNextPage: o.page * 15 < all.length }), 0); };
   const out = await createFetcher(s, sdk)('all', 'noodle');
-  assert.equal(s.calls.length, 3);
+  assert.equal(calls.length, 3);
+  assert.equal(out.length, 45);
   assert.equal(out.hasMore, true);
 });
 
@@ -201,9 +201,10 @@ test('추천 first view stops at the last page when an area has fewer than 45 pl
   assert.equal(s.calls.length, 4); // 검색어 2개 × 2페이지(2페이지에서 끝)
 });
 
-test('menu tabs still load only page 1 at first (45 rule is for 추천 only)', async () => {
-  const s = fakeRanked(ranked(60));
-  const out = await createFetcher(s, sdk)('all', 'noodle');
-  assert.equal(s.calls.length, 3);
-  assert.equal(out.pages, 1);
+test('one-word menu tab (중식) fills to 30 with 2 pages', async () => {
+  const s = fakeRanked(distinct('z', 45).map(d => ({ ...d, category_name: '음식점 > 중식 > 중국요리' })));
+  const out = await createFetcher(s, sdk)('all', 'chinese');
+  assert.equal(s.calls.length, 2);
+  assert.equal(out.length, 30);
+  assert.equal(out.hasMore, true);
 });

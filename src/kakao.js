@@ -108,9 +108,11 @@ export function createFetcher(keywordSearch, sdk, options = {}) {
       let want = Math.min(Math.max(1, pages), maxPages);
       await loadTo(want);
       let out = build();
-      // 추천 탭 첫 화면: firstCount곳이 찰 때까지 다음 페이지를 받고, 딱 그만큼만 보여준다(나머지는 '더 보기')
+      // 첫 화면: 추천 탭은 firstCount(45)곳, 메뉴 탭은 fill(30)곳이 찰 때까지 다음 페이지를 받는다.
+      // 추천 탭만 딱 45곳으로 자르고 나머지는 '더 보기'로 보여준다.
+      const target = pages <= 1 ? (category.firstCount ?? category.fill ?? 0) : 0;
       const first = pages <= 1 && category.firstCount;
-      while (first && out.length < category.firstCount && want < maxPages && st.items.some((it) => it.hasNext)) {
+      while (out.length < target && want < maxPages && st.items.some((it) => it.hasNext)) {
         want += 1;
         await loadTo(want);
         out = build();
