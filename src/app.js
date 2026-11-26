@@ -23,6 +23,20 @@ function paint() {
   if (state.data) $('list').innerHTML = renderList(sortRestaurants(state.data, state.sortBy), { areaLabel: areaLabel() });
 }
 
+// 현재 종류에서 지역별 식당 수를 조회해 지역 목록을 갱신한다. 0곳인 지역은 목록에서 빠진다.
+// 결과는 fetcher 캐시에 남으므로, 나중에 그 지역을 고르면 다시 호출하지 않는다.
+async function refreshAreaCounts(categoryKey) {
+  const counts = {};
+  const paintAreas = () => { if ($('area')) $('area').innerHTML = renderAreaOptions(AREAS, state.area, counts); };
+  await Promise.all(AREAS.map((a) => state.fetchFor(a.key, categoryKey)
+    .then((list) => { counts[a.key] = list.length; })
+    .catch(() => { /* 실패한 지역은 숫자 없이 둔다 */ })));
+  if (state.active !== categoryKey) return; // 그 사이 종류가 바뀌었으면 무시
+  // 지금 고른 지역이 0곳이면 남양주 전체로 돌린다
+  if (counts[state.area] === 0) { state.area = AREAS[0].key; paintAreas(); show(); return; }
+  paintAreas();
+}
+
 async function show() {
   const { area, active } = state;
   state.data = null;
@@ -66,11 +80,16 @@ async function main() {
 
   $('tabs').addEventListener('click', (ev) => {
     const btn = ev.target.closest('[data-key]');
-    if (btn && (btn.dataset.key !== state.active || !state.data)) { state.active = btn.dataset.key; show(); }
+    if (btn && (btn.dataset.key !== state.active || !state.data)) {
+      state.active = btn.dataset.key;
+      show();
+      refreshAreaCounts(state.active);
+    }
   });
   $('area')?.addEventListener('change', (ev) => { state.area = ev.target.value; show(); });
   $('sortBy')?.addEventListener('change', (ev) => { state.sortBy = ev.target.value; paint(); });
   show();
+  refreshAreaCounts(state.active);
 }
 
 main();

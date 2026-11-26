@@ -12,8 +12,15 @@ export function renderTabs(categories, activeKey) {
   }).join('');
 }
 
-export function renderAreaOptions(areas, activeKey) {
-  return areas.map((a) => `<option value="${esc(a.key)}"${a.key === activeKey ? ' selected' : ''}>${esc(a.label)}</option>`).join('');
+// counts: { 지역키: 식당 수 }. 0곳인 지역은 숨기고, 아직 모르는 지역은 숫자 없이 보여준다.
+export function renderAreaOptions(areas, activeKey, counts = {}) {
+  return areas
+    .filter((a) => counts[a.key] !== 0)
+    .map((a) => {
+      const n = counts[a.key];
+      const label = n == null ? a.label : `${a.label} (${n})`;
+      return `<option value="${esc(a.key)}"${a.key === activeKey ? ' selected' : ''}>${esc(label)}</option>`;
+    }).join('');
 }
 
 function renderCard(x) {

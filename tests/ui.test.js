@@ -23,3 +23,12 @@ test('area options', () => {
   assert.equal(html.match(/<option/g).length, AREAS.length);
   assert.ok(html.includes('남양주 전체'));
 });
+
+test('area options hide areas with 0 results and show counts', () => {
+  const counts = { all: 45, '조안면': 0, '별내동': 38 };
+  const html = renderAreaOptions(AREAS, 'all', counts);
+  assert.ok(!html.includes('조안면'));
+  assert.ok(html.includes('별내동 (38)'));
+  assert.ok(html.includes('남양주 전체 (45)'));
+  assert.ok(html.includes('와부읍')); // 아직 모르는 지역은 숫자 없이 표시
+});
