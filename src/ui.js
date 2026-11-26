@@ -12,8 +12,11 @@ export function renderTabs(categories, activeKey) {
   }).join('');
 }
 
+// 지역 목록은 '전체'를 맨 앞에 두고 나머지는 가나다순으로 보여준다(데이터 순서는 그대로 둔다)
 export function renderAreaOptions(areas, activeKey) {
-  return areas
+  const all = areas.filter((a) => a.key === 'all');
+  const named = areas.filter((a) => a.key !== 'all').sort((a, b) => a.label.localeCompare(b.label, 'ko'));
+  return [...all, ...named]
     .map((a) => `<option value="${esc(a.key)}"${a.key === activeKey ? ' selected' : ''}>${esc(a.label)}</option>`)
     .join('');
 }
@@ -27,9 +30,10 @@ function renderCard(x) {
 </li>`;
 }
 
-export function renderList(list, { areaLabel = '' } = {}) {
+// 요약 문구의 정렬 기준은 지금 고른 정렬(추천순·이름순)을 따른다
+export function renderList(list, { areaLabel = '', sortBy = 'rank' } = {}) {
   if (!list.length) return `<p class="notice">${esc(areaLabel)}에는 이 종류의 맛집 정보가 없어요.</p>`;
-  const scope = '카카오 추천순';
+  const scope = sortBy === 'name' ? '이름순' : '카카오 추천순';
   const more = list.hasMore ? '<button type="button" id="more" class="btn more-btn">더 보기</button>' : '';
   return `<p class="summary">${list.length}곳 · ${esc(areaLabel)} · ${scope}</p><ul class="cards">${list.map(renderCard).join('')}</ul>${more}`;
 }

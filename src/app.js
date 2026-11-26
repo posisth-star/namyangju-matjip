@@ -45,7 +45,7 @@ function paintControls() {
 
 function paint() {
   paintControls();
-  if (state.data) $('list').innerHTML = renderList(sortRestaurants(state.data, state.sortBy), { areaLabel: areaLabel() });
+  if (state.data) $('list').innerHTML = renderList(sortRestaurants(state.data, state.sortBy), { areaLabel: areaLabel(), sortBy: state.sortBy });
 }
 
 async function show() {

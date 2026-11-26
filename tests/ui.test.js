@@ -13,6 +13,12 @@ test('card fields and links', () => {
   assert.ok(!html.includes('도보'));
 });
 test('summary', () => assert.ok(renderList([r(), r({ id: '2' })], { areaLabel: '별내동' }).includes('2곳 · 별내동 · 카카오 추천순')));
+test('summary follows the chosen sort (이름순)', () => {
+  const html = renderList([r(), r({ id: '2' })], { areaLabel: '별내동', sortBy: 'name' });
+  assert.ok(html.includes('2곳 · 별내동 · 이름순'), html);
+  assert.ok(!html.includes('카카오 추천순'));
+  assert.ok(renderList([r()], { areaLabel: '별내동', sortBy: 'rank' }).includes('카카오 추천순'));
+});
 test('escapes name', () => assert.ok(renderList([r({ name: '<b>&</b>' })], {}).includes('&lt;b&gt;&amp;&lt;/b&gt;')));
 test('empty', () => assert.ok(renderList([], { areaLabel: '수동면' }).includes('수동면에는 이 종류의 맛집 정보가 없어요.')));
 test('error has retry', () => assert.ok(renderError().includes('id="retry"')));
@@ -22,6 +28,14 @@ test('area options', () => {
   const html = renderAreaOptions(AREAS, 'all');
   assert.equal(html.match(/<option/g).length, AREAS.length);
   assert.ok(html.includes('남양주 전체'));
+});
+test('area options: 전체 first, the rest in Korean alphabetical order', () => {
+  const labels = [...renderAreaOptions(AREAS, 'all').matchAll(/<option[^>]*>([^<]+)<\/option>/g)].map((m) => m[1]);
+  assert.equal(labels[0], '남양주 전체');
+  const named = labels.slice(1);
+  assert.deepEqual(named, [...named].sort((a, b) => a.localeCompare(b, 'ko')));
+  assert.equal(named[0], '금곡동');
+  assert.ok(named.includes('화도읍'));
 });
 
 
