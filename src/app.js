@@ -1,11 +1,14 @@
-// 페이지 진입점: SDK 로드 → 지역·종류 선택 → 정렬 → 렌더
-import { CATEGORIES, AREAS, MIN_COUNT } from './categories.js';
+// 페이지 진입점: SDK 로드 → 지역·종류·검색 → 정렬 → 렌더
+import { AREAS, isVisible, visibleCategories, visibleAreas } from './categories.js';
 import { sortRestaurants } from './places-logic.js';
 import { createFetcher, createSearcher, withTimeout } from './kakao.js';
 import { renderTabs, renderList, renderLoading, renderError, renderAreaOptions } from './ui.js';
+import { parseUrlState, buildUrlQuery } from './url-state.js';
+import { locateArea } from './nearby.js';
 
 const $ = (id) => document.getElementById(id);
-const state = { area: AREAS[0].key, active: CATEGORIES[0].key, sortBy: 'rank', data: null, fetchFor: null, searchFor: null, term: '', tabCounts: {} };
+// 주소(?area=…&cat=…&q=…&sort=…)에 담긴 화면으로 시작한다
+const state = { ...parseUrlState(location.search), data: null, fetchFor: null, searchFor: null };
 const areaLabel = () => AREAS.find((a) => a.key === state.area)?.label ?? '';
 
 export function loadKakaoSdk(appKey) {
@@ -18,47 +21,31 @@ export function loadKakaoSdk(appKey) {
   });
 }
 
-function paint() {
-  $('tabs').innerHTML = renderTabs(CATEGORIES, state.term ? null : state.active, state.tabCounts);
+// 지금 화면을 주소에 반영해 그대로 공유할 수 있게 한다
+function syncUrl() {
+  const qs = buildUrlQuery(state);
+  if (qs !== location.search) history.replaceState(null, '', `${location.pathname}${qs}`);
+}
+
+// 탭은 지금 지역에서 보이는 종류만, 지역 목록은 지금 종류에서 보이는 지역만 (검색 중엔 모든 지역)
+function paintControls() {
+  $('tabs').innerHTML = renderTabs(visibleCategories(state.area), state.term ? null : state.active);
+  if ($('area')) $('area').innerHTML = renderAreaOptions(state.term ? AREAS : visibleAreas(state.active), state.area);
   if ($('clearSearch')) $('clearSearch').hidden = !state.term;
+  if ($('q') && $('q').value.trim() !== state.term) $('q').value = state.term;
+  if ($('sortBy')) $('sortBy').value = state.sortBy;
+}
+
+function paint() {
+  paintControls();
   if (state.data) $('list').innerHTML = renderList(sortRestaurants(state.data, state.sortBy), { areaLabel: areaLabel(), term: state.term });
-}
-
-// 현재 종류에서 지역별 식당 수를 조회해 지역 목록을 갱신한다. 0곳인 지역은 목록에서 빠진다.
-// 결과는 fetcher 캐시에 남으므로, 나중에 그 지역을 고르면 다시 호출하지 않는다.
-async function refreshAreaCounts(categoryKey) {
-  const counts = {};
-  const paintAreas = () => { if ($('area')) $('area').innerHTML = renderAreaOptions(AREAS, state.area, counts); };
-  await Promise.all(AREAS.map((a) => state.fetchFor(a.key, categoryKey)
-    .then((list) => { counts[a.key] = list.length; })
-    .catch(() => { /* 실패한 지역은 숫자 없이 둔다 */ })));
-  if (state.active !== categoryKey || state.term) return; // 그 사이 종류가 바뀌었거나 검색 중이면 무시
-  // 지금 고른 지역이 5곳 이하면 남양주 전체로 돌린다
-  if (state.area !== AREAS[0].key && counts[state.area] != null && counts[state.area] < MIN_COUNT) {
-    state.area = AREAS[0].key; paintAreas(); show(); refreshTabCounts(state.area); return;
-  }
-  paintAreas();
-}
-
-// 현재 지역에서 종류별 식당 수를 조회해 종류 탭을 갱신한다. 5곳 이하인 종류 탭은 빠진다.
-async function refreshTabCounts(areaKey) {
-  const counts = {};
-  state.tabCounts = counts;
-  await Promise.all(CATEGORIES.map((c) => state.fetchFor(areaKey, c.key)
-    .then((list) => { counts[c.key] = list.length; })
-    .catch(() => { /* 실패한 종류는 탭을 그대로 둔다 */ })));
-  if (state.area !== areaKey || state.tabCounts !== counts) return; // 그 사이 지역이 바뀌었으면 무시
-  // 지금 고른 종류가 5곳 이하면 전체 탭으로 돌린다
-  if (state.active !== 'all' && counts[state.active] != null && counts[state.active] < MIN_COUNT) {
-    state.active = 'all'; show(); refreshAreaCounts(state.active); return;
-  }
-  paint();
 }
 
 async function show() {
   const { area, active, term } = state;
   state.data = null;
-  paint();
+  syncUrl();
+  paintControls();
   $('list').innerHTML = renderLoading();
   try {
     const data = term ? await state.searchFor(area, term) : await state.fetchFor(area, active);
@@ -71,6 +58,19 @@ async function show() {
   }
 }
 
+function setArea(areaKey) {
+  state.area = areaKey;
+  if (!isVisible(state.area, state.active)) state.active = 'all'; // 이 지역에 없는 종류면 전체로
+  show();
+}
+
+function flash(message) {
+  const el = $('nearbyMsg');
+  if (!el) return;
+  el.textContent = message;
+  el.hidden = !message;
+}
+
 // 다시 시도: SDK가 준비됐으면 현재 선택만 재호출, 아니면 새로고침
 document.addEventListener('click', (ev) => {
   if (ev.target.id !== 'retry') return;
@@ -79,8 +79,7 @@ document.addEventListener('click', (ev) => {
 });
 
 async function main() {
-  $('tabs').innerHTML = renderTabs(CATEGORIES, state.active);
-  if ($('area')) $('area').innerHTML = renderAreaOptions(AREAS, state.area);
+  paintControls();
   $('list').innerHTML = renderLoading();
   let key;
   try {
@@ -102,31 +101,34 @@ async function main() {
     if (btn && (btn.dataset.key !== state.active || !state.data || state.term)) {
       state.active = btn.dataset.key;
       state.term = '';
-      if ($('q')) $('q').value = '';
       show();
-      refreshAreaCounts(state.active);
     }
   });
-  $('area')?.addEventListener('change', (ev) => { state.area = ev.target.value; show(); refreshTabCounts(state.area); });
+  $('area')?.addEventListener('change', (ev) => { flash(''); setArea(ev.target.value); });
+  $('sortBy')?.addEventListener('change', (ev) => { state.sortBy = ev.target.value; syncUrl(); paint(); });
   $('searchForm')?.addEventListener('submit', (ev) => {
     ev.preventDefault();
-    const term = $('q').value.trim();
+    const term = $('q').value.trim().replace(/\s+/g, ' ').slice(0, 30);
     if (!term) return;
     state.term = term;
-    // 검색은 종류와 상관없이 하므로, 지역 목록은 숫자 없이 전체를 보여준다
-    if ($('area')) $('area').innerHTML = renderAreaOptions(AREAS, state.area);
     show();
   });
-  $('clearSearch')?.addEventListener('click', () => {
-    state.term = '';
-    $('q').value = '';
-    show();
-    refreshAreaCounts(state.active);
+  $('clearSearch')?.addEventListener('click', () => { state.term = ''; show(); });
+  $('nearby')?.addEventListener('click', async () => {
+    const btn = $('nearby');
+    btn.disabled = true;
+    flash('위치를 확인하는 중이에요…');
+    try {
+      const areaKey = await locateArea(navigator.geolocation, new services.Geocoder(), services.Status.OK);
+      flash(areaKey === 'all' ? '남양주 안이지만 목록에 없는 지역이라 남양주 전체를 보여드려요.' : `지금 위치: ${areaKey}`);
+      setArea(areaKey);
+    } catch (e) {
+      flash(e.message);
+    } finally {
+      btn.disabled = false;
+    }
   });
-  $('sortBy')?.addEventListener('change', (ev) => { state.sortBy = ev.target.value; paint(); });
   show();
-  refreshAreaCounts(state.active);
-  refreshTabCounts(state.area);
 }
 
 main();

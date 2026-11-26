@@ -4,6 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>남양주 맛집</title>
+  <meta name="description" content="남양주 지역·종류별 맛집을 카카오 추천순으로. 메뉴나 식당 이름으로 검색하고, 리뷰는 네이버·카카오에서 확인하세요.">
+  <!-- 카톡·당근·SNS 링크 미리보기 -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="남양주 맛집">
+  <meta property="og:title" content="남양주 맛집 — 지역·종류별 추천">
+  <meta property="og:description" content="다산·별내·진접·화도 등 남양주 16개 지역 맛집을 카카오 추천순으로 모아 봤어요. 메뉴 검색도 돼요.">
+  <meta property="og:url" content="https://posisth-star.github.io/namyangju-matjip/">
+  <meta property="og:image" content="https://posisth-star.github.io/namyangju-matjip/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="ko_KR">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -20,6 +34,7 @@
     <label>지역
       <select id="area"></select>
     </label>
+    <button type="button" id="nearby" class="btn">📍 내 주변</button>
     <label>정렬
       <select id="sortBy">
         <option value="rank">추천순</option>
@@ -27,9 +42,10 @@
       </select>
     </label>
   </div>
+  <p id="nearbyMsg" class="notice nearby-msg" role="status" hidden></p>
   <nav id="tabs" role="tablist" aria-label="음식 종류"></nav>
   <main id="list" aria-live="polite"></main>
-  <footer id="footer">장소 정보: 카카오맵 · 순위는 카카오 정확도(추천) 순이에요.</footer>
+  <footer id="footer">장소 정보: 카카오맵 · 순위는 카카오 정확도(추천) 순이에요. 지금 보는 화면은 주소를 복사해 그대로 공유할 수 있어요.</footer>
   <script type="module" src="src/app.js"></script>
 </body>
 </html>

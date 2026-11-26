@@ -24,25 +24,7 @@ test('area options', () => {
   assert.ok(html.includes('남양주 전체'));
 });
 
-test('area options hide areas with 5 or fewer results and show counts', () => {
-  const counts = { all: 45, '조안면': 0, '수동면': 5, '와부읍': 6, '별내동': 38 };
-  const html = renderAreaOptions(AREAS, 'all', counts);
-  assert.ok(!html.includes('조안면'));
-  assert.ok(html.includes('별내동 (38)'));
-  assert.ok(html.includes('남양주 전체 (45)'));
-  assert.ok(!html.includes('수동면'));
-  assert.ok(html.includes('와부읍 (6)'));
-  assert.ok(html.includes('진접읍')); // 아직 모르는 지역은 숫자 없이 표시
-});
 
-test('tabs hide categories with 5 or fewer results; 전체 and unknown stay', () => {
-  const html = renderTabs(CATEGORIES, 'all', { all: 3, korean: 45, chinese: 5, japanese: 6 });
-  assert.ok(html.includes('data-key="all"'));
-  assert.ok(html.includes('data-key="korean"'));
-  assert.ok(!html.includes('data-key="chinese"'));
-  assert.ok(html.includes('data-key="japanese"'));
-  assert.ok(html.includes('data-key="snack"'));
-});
 
 test('search summary and empty message', () => {
   assert.ok(renderList([r()], { areaLabel: '다산동', term: '칼국수' }).includes("1곳 · 다산동 · '칼국수' 검색"));
