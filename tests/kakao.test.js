@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { searchTop, createFetcher, buildQuery } from '../src/kakao.js';
+import { searchTop, createFetcher, mergeRanked } from '../src/kakao.js';
 import { CATEGORIES, AREAS } from '../src/categories.js';
 
 const sdk = { sortAccuracy: 'ACC', Status: { OK: 'OK', ZERO_RESULT: 'ZERO', ERROR: 'ERR' } };
@@ -26,9 +26,8 @@ const ranked = (n) => Array.from({ length: n }, (_, i) => doc('r' + i));
 const areaKey = (label) => AREAS.find(a => a.label === label).key;
 const cat = (k) => CATEGORIES.find(c => c.key === k);
 
-test('buildQuery combines area and category', () => {
-  assert.equal(buildQuery(AREAS[0], cat('korean')), '남양주 한식');
-  assert.equal(buildQuery(AREAS.find(a => a.label === '별내동'), cat('all')), '별내동 맛집');
+test('mergeRanked interleaves lists in rank order', () => {
+  assert.deepEqual(mergeRanked([['a1', 'a2', 'a3'], ['b1'], ['c1', 'c2']]), ['a1', 'b1', 'c1', 'a2', 'c2', 'a3']);
 });
 
 test('searchTop: accuracy order, no location/bounds, 3 pages', async () => {
@@ -56,7 +55,7 @@ test('fetcher keeps only 남양주 addresses and category, ranks in order', asyn
 test('fetcher uses area in query and CE7 for cafe', async () => {
   const s = fakeRanked([doc('c', '경기 남양주시 별내동 1', '음식점 > 카페')]);
   await createFetcher(s, sdk)(areaKey('별내동'), 'cafe');
-  assert.equal(s.calls[0].q, '별내동 카페');
+  assert.equal(s.calls[0].q, '남양주 별내동 카페');
   assert.equal(s.calls[0].o.category_group_code, 'CE7');
 });
 
@@ -87,4 +86,43 @@ test('rejects when keywordSearch throws on a later page', async () => {
   let n = 0;
   const s = (q, cb) => { if (++n === 2) throw new Error('boom'); setTimeout(() => cb(ranked(15), 'OK', { hasNextPage: true }), 0); };
   await assert.rejects(searchTop(s, 'q', 'FD6', sdk, 1000), /boom/);
+});
+
+test('area mode keeps only addresses in that area (drops neighbours)', async () => {
+  const docs = [doc('a', '경기 남양주시 퇴계원읍 퇴계원리 1'), doc('b', '경기 남양주시 별내동 1'), doc('c', '경기 남양주시 퇴계원읍 2')];
+  const out = await createFetcher(fakeRanked(docs), sdk)(areaKey('퇴계원읍'), 'korean');
+  assert.deepEqual(out.map(x => [x.id, x.rank]), [['a', 1], ['c', 2]]);
+});
+
+test('multi-legal area queries each legal dong and merges', async () => {
+  const byQuery = {
+    '남양주 일패동 한식': [doc('i1', '경기 남양주시 일패동 1')],
+    '남양주 이패동 한식': [doc('e1', '경기 남양주시 이패동 1'), doc('x', '경기 남양주시 다산동 1')],
+    '남양주 삼패동 한식': [doc('s1', '경기 남양주시 삼패동 1'), doc('s2', '경기 남양주시 삼패동 2')],
+  };
+  const calls = [];
+  const s = (q, cb, o) => { calls.push(q); setTimeout(() => cb(byQuery[q] ?? [], (byQuery[q] ?? []).length ? 'OK' : 'ZERO', { hasNextPage: false }), 0); };
+  const out = await createFetcher(s, sdk)(areaKey('양정동'), 'korean');
+  assert.deepEqual(calls.sort(), Object.keys(byQuery).sort());
+  assert.deepEqual(out.map(x => x.id), ['i1', 'e1', 's1', 's2']);
+  assert.deepEqual(out.map(x => x.rank), [1, 2, 3, 4]);
+});
+
+test('caps merged results at 45', async () => {
+  const many = (p) => Array.from({ length: 45 }, (_, i) => doc(p + i, '경기 남양주시 삼패동 1'));
+  const s = (q, cb, o) => setTimeout(() => cb(o.page === 1 ? many(q).slice(0, 15) : [], o.page === 1 ? 'OK' : 'ZERO', { hasNextPage: false }), 0);
+  const out = await createFetcher(s, sdk)(areaKey('양정동'), 'korean');
+  assert.ok(out.length <= 45);
+});
+
+test('전체 category searches both "맛집" and plain area name, merged', async () => {
+  const byQuery = {
+    '남양주 호평동 맛집': [doc('m1', '경기 남양주시 호평동 1')],
+    '남양주 호평동': [doc('p1', '경기 남양주시 호평동 2'), doc('m1', '경기 남양주시 호평동 1')],
+  };
+  const calls = [];
+  const s = (q, cb) => { calls.push(q); setTimeout(() => cb(byQuery[q] ?? [], (byQuery[q] ?? []).length ? 'OK' : 'ZERO', { hasNextPage: false }), 0); };
+  const out = await createFetcher(s, sdk)(areaKey('호평동'), 'all');
+  assert.deepEqual(calls.sort(), Object.keys(byQuery).sort());
+  assert.deepEqual(out.map(x => x.id), ['m1', 'p1']);
 });
