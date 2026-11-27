@@ -42,6 +42,10 @@ export function renderLoading() {
   return '<p class="notice">맛집 정보를 불러오는 중이에요…</p>';
 }
 
+export function renderQuotaNotice(limit) {
+  return `<p class="notice">오늘은 이 브라우저에서 하루 ${limit}회 조회 한도를 다 쓰셨어요. 많은 분이 함께 쓰는 무료 서비스라 횟수를 나누고 있어요. 내일 다시 이용해 주세요.</p>`;
+}
+
 export function renderError() {
   return '<p class="notice error">지금 이용자가 많거나 일시적인 문제로 식당 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요. <button type="button" id="retry" class="btn">다시 시도</button></p>';
 }

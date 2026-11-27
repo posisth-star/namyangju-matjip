@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderTabs, renderList, renderLoading, renderError, renderAreaOptions } from '../src/ui.js';
+import { renderTabs, renderList, renderLoading, renderError, renderAreaOptions, renderQuotaNotice } from '../src/ui.js';
 import { CATEGORIES, AREAS } from '../src/categories.js';
 
 const r = (o) => ({ id: '1', name: '목향원', subCategory: '한정식', area: '별내동', phone: '031-123-4567', rank: 1,
@@ -59,4 +59,11 @@ test('list shows a 더 보기 button only when more results exist', () => {
 
 test('search UI is gone from the list text', () => {
   assert.ok(!renderList([], { areaLabel: '다산동' }).includes('검색'));
+});
+
+test('quota notice tells the visitor to come back tomorrow, with no retry button', () => {
+  const html = renderQuotaNotice(100);
+  assert.ok(html.includes('하루 100회'));
+  assert.ok(html.includes('내일'));
+  assert.ok(!html.includes('id="retry"'));
 });

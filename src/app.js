@@ -2,7 +2,8 @@
 import { AREAS, isVisible, visibleCategories, visibleAreas } from './categories.js';
 import { sortRestaurants } from './places-logic.js';
 import { createFetcher, withTimeout } from './kakao.js';
-import { renderTabs, renderList, renderLoading, renderError, renderAreaOptions } from './ui.js';
+import { renderTabs, renderList, renderLoading, renderError, renderAreaOptions, renderQuotaNotice } from './ui.js';
+import { createQuota, guardSearch, DAILY_LIMIT } from './quota.js';
 import { parseUrlState, buildUrlQuery } from './url-state.js';
 
 const $ = (id) => document.getElementById(id);
@@ -63,7 +64,7 @@ async function show() {
     paint();
   } catch (e) {
     console.error(e);
-    if (state.area === area && state.active === active) $('list').innerHTML = renderError();
+    if (state.area === area && state.active === active) $('list').innerHTML = e?.name === 'QuotaError' ? renderQuotaNotice(DAILY_LIMIT) : renderError();
   }
 }
 
@@ -88,6 +89,7 @@ async function loadMore(btn) {
     paint();
   } catch (e) {
     console.error(e);
+    if (e?.name === 'QuotaError') { btn.outerHTML = renderQuotaNotice(DAILY_LIMIT); return; }
     btn.disabled = false;
     btn.textContent = '더 보기 (다시 시도)';
   }
@@ -120,7 +122,8 @@ async function main() {
     Status: services.Status,
     toBounds: (r) => new LatLngBounds(new LatLng(r.sw.lat, r.sw.lng), new LatLng(r.ne.lat, r.ne.lng)),
   };
-  state.fetchFor = createFetcher(places.keywordSearch.bind(places), sdk);
+  // 카카오 호출마다 하루 한도(브라우저당 100회)를 센다
+  state.fetchFor = createFetcher(guardSearch(places.keywordSearch.bind(places), createQuota()), sdk);
 
   $('tabs').addEventListener('scroll', updateTabFade, { passive: true });
   window.addEventListener('resize', updateTabFade);
