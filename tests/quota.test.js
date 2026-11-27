@@ -35,3 +35,11 @@ test('guardSearch counts each Kakao call and throws QuotaError once the limit is
   assert.throws(() => search('c'), QuotaError);
   assert.deepEqual(calls, ['a', 'b']);
 });
+
+test('remaining() reports what is left today without using any', () => {
+  const q = createQuota({ storage: memStorage(), limit: 3, now: at('2026-11-27T10:00:00+09:00') });
+  assert.equal(q.remaining(), 3);
+  q.take();
+  assert.equal(q.remaining(), 2);
+  assert.equal(q.remaining(), 2);
+});

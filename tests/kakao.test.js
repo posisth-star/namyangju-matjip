@@ -159,12 +159,22 @@ test('menu tab first view costs one call per search word when page 1 already has
   assert.equal(out.hasMore, true);
 });
 
-test('추천 tab in a multi-legal area still searches by 법정동 names (box search is weak for generic words)', async () => {
+test('추천 tab in 다산동 still searches by 법정동 names (box search is weak for generic words)', async () => {
   const calls = [];
   const s = (q, cb, o) => { calls.push({ q, o }); setTimeout(() => cb([], 'ZERO', { hasNextPage: false }), 0); };
-  await createFetcher(s, sdk)(areaKey('양정동'), 'all');
+  await createFetcher(s, sdk)(areaKey('다산동'), 'all');
   assert.ok(calls.every(c => !c.o.bounds));
-  assert.deepEqual(calls.map(c => c.q).sort(), ['일패동', '이패동', '삼패동'].flatMap(l => [`남양주 ${l} 맛집`, `남양주 ${l}`]).sort());
+  assert.deepEqual(calls.map(c => c.q).sort(), ['다산동', '수석동'].flatMap(l => [`남양주 ${l} 맛집`, `남양주 ${l}`]).sort());
+});
+
+test('추천 tab in 양정동 searches "남양주 양정동" once (2026-11-27: same 35 places as the 3 법정동 searches, 14 → 6 calls) and keeps only its 법정동', async () => {
+  const calls = [];
+  const docs = [doc('in', '경기 남양주시 이패동 1', '음식점 > 한식'), doc('out', '경기 남양주시 별내동 1', '음식점 > 한식')];
+  const s = (q, cb, o) => { calls.push({ q, o }); setTimeout(() => cb(docs, 'OK', { hasNextPage: false }), 0); };
+  const out = await createFetcher(s, sdk)(areaKey('양정동'), 'all');
+  assert.deepEqual(calls.map(c => c.q).sort(), ['남양주 양정동', '남양주 양정동 맛집'].sort());
+  assert.ok(calls.every(c => !c.o.bounds));
+  assert.deepEqual(out.map(x => x.id), ['in']);
 });
 
 // ---- 추천 탭: 첫 화면에 45곳이 차도록 페이지를 더 받는다 ----

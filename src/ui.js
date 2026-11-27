@@ -24,18 +24,20 @@ export function renderAreaOptions(areas, activeKey) {
 function renderCard(x) {
   const phone = x.phone ? `<a class="phone" href="tel:${esc(x.phone)}">${esc(x.phone)}</a>` : '';
   return `<li class="card">
-  <div class="card-head"><h3>${x.rank ? `<span class="rank">추천 ${x.rank}위</span> ` : ''}${esc(x.name)}</h3><span class="walk">${esc(x.area)}</span></div>
+  <div class="card-head"><h3>${x.rank ? `<span class="rank">${x.rank}</span> ` : ''}${esc(x.name)}</h3><span class="walk">${esc(x.area)}</span></div>
   <div class="meta">${x.subCategory ? `<span class="sub">${esc(x.subCategory)}</span>` : ''}${x.road ? `<span class="addr">📍 ${esc(x.road)}</span>` : ''}${phone}</div>
   <div class="links">${link(x.naverUrl, '네이버에서 보기')}${link(x.kakaoUrl, '카카오맵에서 보기')}</div>
 </li>`;
 }
 
 // 요약 문구의 정렬 기준은 지금 고른 정렬(추천순·이름순)을 따른다
-export function renderList(list, { areaLabel = '', sortBy = 'rank' } = {}) {
+// remaining: 오늘 남은 조회 횟수. 20회 이하일 때만 미리 알려준다.
+export function renderList(list, { areaLabel = '', sortBy = 'rank', remaining } = {}) {
   if (!list.length) return `<p class="notice">${esc(areaLabel)}에는 이 종류의 맛집 정보가 없어요.</p>`;
   const scope = sortBy === 'name' ? '이름순' : '카카오 추천순';
   const more = list.hasMore ? '<button type="button" id="more" class="btn more-btn">더 보기</button>' : '';
-  return `<p class="summary">${list.length}곳 · ${esc(areaLabel)} · ${scope}</p><ul class="cards">${list.map(renderCard).join('')}</ul>${more}`;
+  const left = Number.isFinite(remaining) && remaining <= 20 ? `<p class="notice quota-left">오늘 이 브라우저에서 ${remaining}회 더 조회할 수 있어요.</p>` : '';
+  return `<p class="summary">${list.length}곳 · ${esc(areaLabel)} · ${scope}</p><ul class="cards">${list.map(renderCard).join('')}</ul>${more}${left}`;
 }
 
 export function renderLoading() {

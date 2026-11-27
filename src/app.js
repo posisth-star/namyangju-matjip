@@ -4,11 +4,12 @@ import { sortRestaurants } from './places-logic.js';
 import { createFetcher, withTimeout } from './kakao.js';
 import { renderTabs, renderList, renderLoading, renderError, renderAreaOptions, renderQuotaNotice } from './ui.js';
 import { createQuota, guardSearch, DAILY_LIMIT } from './quota.js';
+import { cachedSearch } from './cache.js';
 import { parseUrlState, buildUrlQuery } from './url-state.js';
 
 const $ = (id) => document.getElementById(id);
 // 주소(?area=…&cat=…&sort=…)에 담긴 화면으로 시작한다
-const state = { ...parseUrlState(location.search), pages: 1, data: null, fetchFor: null };
+const state = { ...parseUrlState(location.search), pages: 1, data: null, fetchFor: null, quota: null };
 const areaLabel = () => AREAS.find((a) => a.key === state.area)?.label ?? '';
 
 export function loadKakaoSdk(appKey) {
@@ -46,7 +47,7 @@ function paintControls() {
 
 function paint() {
   paintControls();
-  if (state.data) $('list').innerHTML = renderList(sortRestaurants(state.data, state.sortBy), { areaLabel: areaLabel(), sortBy: state.sortBy });
+  if (state.data) $('list').innerHTML = renderList(sortRestaurants(state.data, state.sortBy), { areaLabel: areaLabel(), sortBy: state.sortBy, remaining: state.quota?.remaining() });
 }
 
 async function show() {
@@ -122,8 +123,10 @@ async function main() {
     Status: services.Status,
     toBounds: (r) => new LatLngBounds(new LatLng(r.sw.lat, r.sw.lng), new LatLng(r.ne.lat, r.ne.lng)),
   };
-  // 카카오 호출마다 하루 한도(브라우저당 100회)를 센다
-  state.fetchFor = createFetcher(guardSearch(places.keywordSearch.bind(places), createQuota()), sdk);
+  // 1시간 안에 같은 검색은 이 탭에 저장해 둔 결과를 쓰고(한도도 쓰지 않음), 실제 카카오 호출만 하루 한도(브라우저당 100회)를 센다
+  state.quota = createQuota();
+  const guarded = guardSearch(places.keywordSearch.bind(places), state.quota);
+  state.fetchFor = createFetcher(cachedSearch(guarded, { Status: services.Status }), sdk);
 
   $('tabs').addEventListener('scroll', updateTabFade, { passive: true });
   window.addEventListener('resize', updateTabFade);

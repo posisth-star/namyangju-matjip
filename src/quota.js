@@ -25,10 +25,14 @@ export function createQuota({ storage = globalThis.localStorage, limit = DAILY_L
     mem = { date: today, count };
     try { storage.setItem(KEY, JSON.stringify(mem)); } catch { /* 저장소 차단: 메모리로만 센다 */ }
   };
+  const usedToday = () => {
+    const today = kstDate(now());
+    return { today, used: Math.max(read(today), mem && mem.date === today ? mem.count : 0) };
+  };
   return {
+    remaining() { return Math.max(0, limit - usedToday().used); },
     take() {
-      const today = kstDate(now());
-      const used = Math.max(read(today), mem && mem.date === today ? mem.count : 0);
+      const { today, used } = usedToday();
       if (used >= limit) return false;
       write(today, used + 1);
       return true;

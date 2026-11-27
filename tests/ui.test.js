@@ -8,7 +8,7 @@ const r = (o) => ({ id: '1', name: '목향원', subCategory: '한정식', area: 
 
 test('card fields and links', () => {
   const html = renderList([r()], { areaLabel: '남양주 전체' });
-  for (const s of ['목향원', '한정식', '별내동', '031-123-4567', '추천 1위', '네이버에서 보기', '카카오맵에서 보기']) assert.ok(html.includes(s), s);
+  for (const s of ['목향원', '한정식', '별내동', '031-123-4567', '<span class="rank">1</span>', '네이버에서 보기', '카카오맵에서 보기']) assert.ok(html.includes(s), s);
   assert.equal(html.match(/target="_blank" rel="noopener"/g).length, 2);
   assert.ok(!html.includes('도보'));
 });
@@ -66,4 +66,16 @@ test('quota notice tells the visitor to come back tomorrow, with no retry button
   assert.ok(html.includes('하루 100회'));
   assert.ok(html.includes('내일'));
   assert.ok(!html.includes('id="retry"'));
+});
+
+test('rank badge is a plain number, not "추천 N위" (Kakao order is not a popularity ranking)', () => {
+  const html = renderList([r({ rank: 7 })], { areaLabel: '별내동' });
+  assert.ok(html.includes('<span class="rank">7</span>'));
+  assert.ok(!html.includes('위</span>'));
+});
+
+test('shows how many lookups are left only when 20 or fewer remain', () => {
+  assert.ok(renderList([r()], { areaLabel: '별내동', remaining: 15 }).includes('오늘 이 브라우저에서 15회 더 조회할 수 있어요'));
+  assert.ok(!renderList([r()], { areaLabel: '별내동', remaining: 21 }).includes('더 조회할 수 있어요'));
+  assert.ok(!renderList([r()], { areaLabel: '별내동' }).includes('더 조회할 수 있어요'));
 });

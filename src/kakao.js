@@ -78,7 +78,7 @@ export function createFetcher(keywordSearch, sdk, options = {}) {
       const extra = useBox ? { bounds: sdk.toBounds ? sdk.toBounds(area.bounds) : area.bounds } : {};
       const words = useBox
         ? category.queries
-        : area.queries.flatMap((a) => category.queries.map((w) => `${a} ${w}`.trim()));
+        : (category.key === 'all' && area.allQueries ? area.allQueries : area.queries).flatMap((a) => category.queries.map((w) => `${a} ${w}`.trim()));
       st = { extra, items: words.map((q) => ({ q, pages: [], hasNext: true })), pending: null };
       states.set(cacheKey, st);
     }
